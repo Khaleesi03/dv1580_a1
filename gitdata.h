@@ -1,2 +1,2 @@
-const char *git_date = "Thu Sep 26 13:26:04 2024 +0200";
-const char *git_sha = "commit c4ce2da6da5b78746ddecae93da40bd08e22f908";
+const char *git_date = "Fri Sep 27 09:49:28 2024 +0200";
+const char *git_sha = "commit ffad10cf23e8ba098702f701da5abd5d6d4791ed";
