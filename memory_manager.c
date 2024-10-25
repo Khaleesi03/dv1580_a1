@@ -1,18 +1,16 @@
 #include <stdio.h>
-#include <string.h>
-#include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 #include "memory_manager.h"
 
 static void *memory_pool; // Pointer to the memory pool
 static size_t pool_size;  // Total size of the memory pool
 
 // Initialization function
-// This function sets up the memory pool of the specified size
 void mem_init(size_t size) {
     memory_pool = malloc(size); // Allocate the memory pool
     if (!memory_pool) {
-        printf("Memory allocation failed.\n");
+        fprintf(stderr, "Memory allocation failed during initialization.\n");
         exit(EXIT_FAILURE); // Exit if allocation failed
     }
 
@@ -21,20 +19,19 @@ void mem_init(size_t size) {
 }
 
 // Allocation function
-// This function allocates a block of memory of the specified size
 void* mem_alloc(size_t size) {
     if (size == 0 || size + sizeof(size_t) > pool_size) {
-        return NULL; // Not enough space in the pool or size is zero
+        return NULL; // Not enough space or size is zero
     }
 
     void* current_block = memory_pool; // Start at the beginning of the pool
 
-    // Traverse through the pool to find a free block
+    // Traverse the pool to find a free block
     while ((char*)current_block < (char*)memory_pool + pool_size) {
         size_t block_size = *(size_t*)current_block; // Get the block size
 
         // Check if the block is free (block size is 0)
-        if (block_size == 0) { 
+        if (block_size == 0) {
             // Check if the remaining space is sufficient for the new block
             if (pool_size - ((char*)current_block - (char*)memory_pool) >= size + sizeof(size_t)) {
                 // Mark block as allocated
@@ -50,7 +47,6 @@ void* mem_alloc(size_t size) {
 }
 
 // Deallocation function
-// Frees a block of memory, marking it as available
 void mem_free(void* block) {
     if (block == NULL) {
         return; // Do nothing if the block is null
@@ -58,11 +54,10 @@ void mem_free(void* block) {
 
     // Set the size of the block to 0, indicating it's free
     size_t* block_size_ptr = (size_t*)((char*)block - sizeof(size_t));
-    *block_size_ptr = 0; // Mark the block as free by setting size to 0
+    *block_size_ptr = 0; // Mark the block as free
 }
 
 // Resize function
-// Resizes an allocated block to the new size, returning the new block
 void* mem_resize(void* block, size_t new_size) {
     if (block == NULL) {
         return mem_alloc(new_size); // If block is NULL, allocate new memory
@@ -88,4 +83,10 @@ void* mem_resize(void* block, size_t new_size) {
     mem_free(block);
 
     return new_block; // Return the new block
+}
+
+// Deinitialization function
+void mem_deinit() {
+    free(memory_pool); // Free the memory pool
+    memory_pool = NULL; // Reset the pointer
 }

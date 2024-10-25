@@ -1,223 +1,179 @@
 #include <stdio.h>
-#include <string.h>
 #include <stdint.h>
-#include <stdlib.h>
+#include <stddef.h>
+#include "memory_manager.h"
 #include "linked_list.h"
 
-// Define the Node structure
 typedef struct Node {
-    uint16_t data;      // 16-bit unsigned integer data
-    struct Node* next;  // Pointer to the next node
+    uint16_t data;            // Stores the data as an unsigned 16-bit integer
+    struct Node* next;       // Pointer to the next node in the list
 } Node;
 
-// List initialization
-// Initializes the head of the list to NULL and sets up the memory pool using mem_init
+// Initialization function
 void list_init(Node** head, size_t size) {
-    *head = NULL; // Start with an empty list
-    mem_init(size); // Initialize memory manager with the given size
+    *head = NULL; // Set the head to NULL to indicate an empty list
 }
 
-// Insertion function
-// Inserts a new node at the end of the list
+// Insertion function at the rear
 void list_insert(Node** head, uint16_t data) {
-    // Allocate memory for the new node using the memory manager
-    Node* new_node = (Node*) mem_alloc(sizeof(Node)); 
-    if (new_node == NULL) {
-        printf("Memory allocation failed\n");
+    Node* new_node = (Node*)mem_alloc(sizeof(Node)); // Allocate a new node
+    if (!new_node) {
+        printf("Memory allocation failed!\n");
         return;
     }
-    new_node->data = data;
-    new_node->next = NULL;
 
-    // If the list is empty, make the new node the head
+    new_node->data = data; // Set the data for the new node
+    new_node->next = NULL; // Initialize the next pointer to NULL
+
     if (*head == NULL) {
-        *head = new_node;
-    } else {
-        // Traverse to the end of the list and add the new node
-        Node* temp = *head;
-        while (temp->next != NULL) {
-            temp = temp->next;
-        }
-        temp->next = new_node;
+        *head = new_node; // If the list is empty, new node becomes the head
+        return;
     }
+
+    Node* temp = *head; // Traverse to the end of the list
+    while (temp->next) {
+        temp = temp->next;
+    }
+    temp->next = new_node; // Link the new node at the end
 }
 
-// Insert after a specific node
-// Inserts a new node with the given data immediately after the specified node
+// Insertion function after a given node
 void list_insert_after(Node* prev_node, uint16_t data) {
     if (prev_node == NULL) {
-        printf("The previous node cannot be NULL\n");
+        printf("The previous node cannot be NULL.\n");
         return;
     }
-    // Allocate memory for the new node using the memory manager
-    Node* new_node = (Node*) mem_alloc(sizeof(Node));
-    if (new_node == NULL) {
-        printf("Memory allocation failed\n");
+
+    Node* new_node = (Node*)mem_alloc(sizeof(Node));
+    if (!new_node) {
+        printf("Memory allocation failed!\n");
         return;
     }
-    // Insert the new node after the previous node
+
     new_node->data = data;
-    new_node->next = prev_node->next;
-    prev_node->next = new_node;
+    new_node->next = prev_node->next; // Link the new node with the next node
+    prev_node->next = new_node; // Link the previous node to the new node
 }
 
-// Insert before a specific node
-// Inserts a new node with the given data immediately before the specified node
+// Insertion function before a given node
 void list_insert_before(Node** head, Node* next_node, uint16_t data) {
-    if (next_node == NULL || *head == NULL) {
-        printf("The node to insert before cannot be NULL\n");
+    if (*head == NULL || next_node == NULL) {
+        printf("List is empty or the next node is NULL.\n");
         return;
     }
-    // Allocate memory for the new node using the memory manager
-    Node* new_node = (Node*) mem_alloc(sizeof(Node));
-    if (new_node == NULL) {
-        printf("Memory allocation failed\n");
+
+    if (*head == next_node) { // Inserting before the head
+        Node* new_node = (Node*)mem_alloc(sizeof(Node));
+        if (!new_node) {
+            printf("Memory allocation failed!\n");
+            return;
+        }
+        new_node->data = data;
+        new_node->next = *head; // Link to the current head
+        *head = new_node; // Update head to the new node
+        return;
+    }
+
+    Node* current = *head;
+    while (current != NULL && current->next != next_node) {
+        current = current->next; // Traverse to find the node before next_node
+    }
+
+    if (current == NULL) {
+        printf("The next node is not found in the list.\n");
+        return;
+    }
+
+    Node* new_node = (Node*)mem_alloc(sizeof(Node));
+    if (!new_node) {
+        printf("Memory allocation failed!\n");
         return;
     }
 
     new_node->data = data;
-
-    // If the new node is the head, insert the new node as the new head
-    if (*head == next_node) {
-        new_node->next = *head;
-        *head = new_node;
-    } else {
-        // Traverse to find the node before the next_node
-        Node* temp = *head;
-        while (temp != next_node && temp != NULL) {
-            temp = temp->next;
-        }
-        // Insert the new node before next_node
-        if (temp != NULL) {
-            new_node->next = next_node;
-            temp->next = new_node;
-        } else {
-            printf("Node to insert before not found\n");
-            mem_free(new_node); // Free memory if insertion fails
-        }
-    }
+    new_node->next = next_node; // Link new node to next_node
+    current->next = new_node; // Link the previous node to the new node
 }
 
 // Deletion function
-// Deletes the first node with the given value
 void list_delete(Node** head, uint16_t data) {
     if (*head == NULL) {
-        printf("List is empty, cannot delete\n");
+        printf("List is empty. Cannot delete.\n");
         return;
     }
 
     Node* temp = *head;
     Node* prev = NULL;
 
-    // Check if the node to delete is the head
+    // Check if head node holds the data
     if (temp != NULL && temp->data == data) {
-        *head = temp->next; // Move the head to the next node
-        mem_free(temp);  // Use memory manager to free the memory of the old head
+        *head = temp->next; // Change head
+        mem_free(temp); // Free the old head
         return;
     }
-    // Traverse the list to find the node with the matching data
+
+    // Search for the data to be deleted
     while (temp != NULL && temp->data != data) {
         prev = temp;
         temp = temp->next;
     }
-    // If no node is found, print the message
+
+    // If data was not present in the list
     if (temp == NULL) {
-        printf("Node with data %d not found\n", data);
+        printf("Data not found in the list.\n");
         return;
     }
-    // Unlink the node and free its memory
-    prev->next = temp->next;
-    mem_free(temp);  // Use custom memory manager
+
+    prev->next = temp->next; // Unlink the node from linked list
+    mem_free(temp); // Free the memory
 }
 
 // Search function
-// Searches for the first node with the given data and returns a pointer to it
 Node* list_search(Node** head, uint16_t data) {
-    Node* temp = *head;
-    // Traverse the list and check each node's data
-    while (temp != NULL) {
-        if (temp->data == data) {
-            return temp; // Return the node if found
+    Node* current = *head;
+    while (current != NULL) {
+        if (current->data == data) {
+            return current; // Return the node if found
         }
-        temp = temp->next;
+        current = current->next;
     }
-    return NULL; // Return NULL if the node is not found
+    return NULL; // Data not found
 }
 
-// Display all nodes
-// Prints the entire linked list in the format [data1, data2, ...]
+// Display function
 void list_display(Node** head) {
-    Node* temp = *head;
+    Node* current = *head;
     printf("[");
-    while (temp != NULL) {
-        printf("%d", temp->data);
-        if (temp->next != NULL) {
+    while (current != NULL) {
+        printf("%d", current->data);
+        current = current->next;
+        if (current != NULL) {
             printf(", ");
-        }
-        temp = temp->next;
-    }
-    printf("]\n");
-}
-
-// Display a range of nodes
-// Prints all nodes between start_node and end_node inclusively
-void list_display_range(Node** head, Node* start_node, Node* end_node) {
-    Node* temp = *head;
-
-    // Start from the head if start_node is NULL
-    if (start_node == NULL) {
-        start_node = *head;
-    }
-    // Traverse to the starting node
-    while (temp != start_node && temp != NULL) {
-        temp = temp->next;
-    }
-
-    printf("[");
-    while (temp != NULL) {
-        printf("%d", temp->data);
-        if (temp->next != end_node->next) {
-            printf(", ");
-        }
-        temp = temp->next;
-
-        // Stop if we reach the end node
-        if (temp == end_node) {
-            printf(", %d", temp->data);
-            break;
         }
     }
     printf("]\n");
 }
 
-// Current nodes function
-// Counts the number of nodes in the list
-// Returns the total number of nodes in the linked list
-size_t list_current_nodes(Node* head) {
-    size_t count = 0;
-    Node* current = head;
-
-    // Traverse the list and increment the count for each node
+// Nodes count function
+int list_count_nodes(Node** head) {
+    int count = 0;
+    Node* current = *head;
     while (current != NULL) {
         count++;
         current = current->next;
     }
-
-    return count;
+    return count; // Return the count of nodes
 }
 
 // Cleanup function
-// Frees all the nodes in the list to avoid memory leaks
 void list_cleanup(Node** head) {
-    Node* temp = *head;
-    Node* next_node;
+    Node* current = *head;
+    Node* next;
 
-    // Traverse the list and free each node's memory
-    while (temp != NULL) {
-        next_node = temp->next;
-        mem_free(temp);  // Use memory manager to free memory
-        temp = next_node;
+    while (current != NULL) {
+        next = current->next; // Store next node
+        mem_free(current); // Free current node
+        current = next; // Move to next node
     }
-
-    *head = NULL;  // Reset head to NULL after cleanup
+    *head = NULL; // Update head to NULL
 }
