@@ -54,7 +54,9 @@ void* mem_alloc(size_t size) {
                 new_block->next = current->next;
                 current->size = size; // Reduce the current block size
                 current->next = new_block;
-            }            
+            } else if (current->size >= size) {
+                total_allocation = current->size + BLOCK_HEADER_SIZE;
+            }
 
             current->free = 0;
             memory_used += total_allocation;
