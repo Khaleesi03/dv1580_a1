@@ -88,7 +88,7 @@ void mem_free(void* block) {
 
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
-    while (current != Null && current < header) {
+    while (current != NULL && current < header) {
         previous = current;
         current = current->next;
     }
