@@ -45,7 +45,7 @@ void* mem_alloc(size_t size) {
     if (size == 0) return NULL; // Handle zero allocation
 
     BlockHeader* current = free_list;
-    BlockHeader* previous = NULL;
+    // BlockHeader* previous = NULL;
     size_t total_allocation = size + BLOCK_HEADER_SIZE; // Total size including header
 
     // Search for a suitable block using the first-fit strategy
@@ -136,7 +136,7 @@ void* mem_resize(void* block, size_t size) {
 
 // Function to deinitialize the memory manager
 void mem_deinit() {
-    munmap(memory_pool); // Free the memory pool
+    munmap(memory_pool, memory_pool_size); // Free the memory pool
     memory_pool = NULL; // Reset pointer
     memory_pool_size = 0; // Reset size
     memory_used = 0; // Reset usage
