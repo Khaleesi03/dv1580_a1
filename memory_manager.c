@@ -135,3 +135,4 @@ void mem_deinit() {
     memory_pool = NULL; // Reset pointer
     memory_pool_size = 0; // Reset size
     memory_used = 0; // Reset usage
+}
