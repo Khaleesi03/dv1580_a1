@@ -67,7 +67,7 @@ void* mem_alloc(size_t size) {
         }
     
     }
-    
+
     previous = current;
     current = current->next;
     return NULL; // No suitable block found
