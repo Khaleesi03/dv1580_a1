@@ -35,6 +35,10 @@ void mem_init(size_t size) {
 }
 
 void* mem_alloc(size_t size) {
+    if (size == 0) {
+        return NULL;
+    }
+
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
     size_t total_allocation = size + BLOCK_HEADER_SIZE;
@@ -51,7 +55,7 @@ void* mem_alloc(size_t size) {
                 new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Correct size
                 new_block->free = 1;
                 new_block->next = current->next;
-                current->size = size; // Set the size of the allocated block
+                //current->size = size; // Set the size of the allocated block
                 current->next = new_block; // Link the new block
             }
 
