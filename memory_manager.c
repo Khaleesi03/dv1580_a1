@@ -40,7 +40,7 @@ void mem_init(size_t size) {
 // Function to allocate memory
 void* mem_alloc(size_t size) {
     if (size == 0) return NULL; // Handle zero allocation
-    
+
     size_t aligned_size = (size + 7) & ~7; // Align size to 8-byte boundary
     BlockHeader* current = free_list;
     size_t total_allocation = aligned_size + BLOCK_HEADER_SIZE; // Total size including header
@@ -55,7 +55,13 @@ void* mem_alloc(size_t size) {
 
             // Split the block if it's larger than needed
             if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
+                // Ensure the split block is within valid bounds
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
+                if ((char*)new_block + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
+                    fprintf(stderr, "Invalid split: new block out of memory bounds\n");
+                    return NULL;
+                }
+
                 new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Remaining size
                 new_block->free = 1;
                 new_block->next = current->next; // Link to next block
@@ -72,6 +78,7 @@ void* mem_alloc(size_t size) {
     }
     return NULL; // No suitable block found
 }
+
 
 
 // Function to free allocated memory
