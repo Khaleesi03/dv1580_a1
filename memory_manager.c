@@ -25,7 +25,7 @@ void mem_init(size_t size) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
     }
-    
+
     memory_pool_size = size;
     memory_limit = size * 1.2; // Set limit to 120% of the pool size
     memory_used = 0;
@@ -40,14 +40,14 @@ void mem_init(size_t size) {
 // Function to allocate memory
 void* mem_alloc(size_t size) {
     if (size == 0) return NULL; // Handle zero allocation
-
+    
+    size_t aligned_size = (size + 7) & ~7; // Align size to 8-byte boundary
     BlockHeader* current = free_list;
-    // BlockHeader* previous = NULL;
-    size_t total_allocation = size + BLOCK_HEADER_SIZE; // Total size including header
+    size_t total_allocation = aligned_size + BLOCK_HEADER_SIZE; // Total size including header
 
     // Search for a suitable block using the first-fit strategy
     while (current != NULL) {
-        if (current->free && current->size >= size) {
+        if (current->free && current->size >= aligned_size) {
             if (memory_used + total_allocation > memory_limit) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
@@ -57,9 +57,9 @@ void* mem_alloc(size_t size) {
             if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
                 new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Remaining size
-                new_block->free = 1; // Mark new block as free
+                new_block->free = 1;
                 new_block->next = current->next; // Link to next block
-                current->size = size; // Set size of the allocated block
+                current->size = aligned_size; // Set size of the allocated block
                 current->next = new_block; // Link the new block
             }
 
@@ -72,6 +72,7 @@ void* mem_alloc(size_t size) {
     }
     return NULL; // No suitable block found
 }
+
 
 // Function to free allocated memory
 void mem_free(void* block) {
