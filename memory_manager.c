@@ -57,7 +57,7 @@ void* mem_alloc(size_t size) {
             }
 
             current->free = 0;
-            memory_used += size + BLOCK_HEADER_SIZE;
+            memory_used += total_allocation;
             return (char*)current + BLOCK_HEADER_SIZE;
         }
         previous = current;
