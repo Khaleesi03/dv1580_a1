@@ -33,6 +33,7 @@ void mem_init(size_t size) {
 
 void* mem_alloc(size_t size) {
     BlockHeader* current = free_list;
+    BlockHeader* previous = NULL;
     while (current != NULL) {
         if (current->free && current->size >= size) {
             if (current->size > size + BLOCK_HEADER_SIZE) {
@@ -47,10 +48,12 @@ void* mem_alloc(size_t size) {
             memory_used += size + BLOCK_HEADER_SIZE;
             return (char*)current + BLOCK_HEADER_SIZE;
         }
+        previous = current;
         current = current->next;
     }
     return NULL;
 }
+
 
 void mem_free(void* block) {
     if (block == NULL) {
@@ -68,6 +71,19 @@ void mem_free(void* block) {
             current->next = current->next->next;
         }
         current = current->next;
+    }
+
+    // Add the freed block to the free list if it's not already there
+    if (free_list == NULL) {
+        free_list = header;
+        header->next = NULL;
+    } else {
+        BlockHeader* current = free_list;
+        while (current->next != NULL) {
+            current = current->next;
+        }
+        current->next = header;
+        header->next = NULL;
     }
 }
 
@@ -93,4 +109,5 @@ void mem_deinit() {
     memory_pool_size = 0;
     memory_used = 0;
     free_list = NULL;
-}
+
+
