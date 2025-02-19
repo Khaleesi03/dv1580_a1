@@ -2,70 +2,67 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/mman.h>
 
 typedef struct BlockHeader {
-    size_t size;
-    int free;
-    struct BlockHeader* next;
+    size_t size;               // Size of the block (excluding header)
+    int free;                 // 1 if the block is free, 0 if allocated
+    struct BlockHeader* next;  // Pointer to the next block in the free list
 } BlockHeader;
 
-static void* memory_pool = NULL;
-static size_t memory_pool_size = 0;
-static size_t memory_used = 0;
-static size_t memory_limit = 0;
-static BlockHeader* free_list = NULL;
+static void* memory_pool = NULL;  // Pointer to the memory pool
+static size_t memory_pool_size = 0; // Total size of the memory pool
+static size_t memory_used = 0;      // Amount of memory currently in use
+static size_t memory_limit = 0;     // Maximum allowed memory usage
+static BlockHeader* free_list = NULL; // Head of the free list
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
+// Function to initialize the memory manager
 void mem_init(size_t size) {
-    memory_pool = malloc(size);  // Fix: Corrected the declaration of memory_pool
+    memory_pool = malloc(size);
     if (memory_pool == NULL) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
     }
     memory_pool_size = size;
-    memory_limit = size * 1.2;
+    memory_limit = size * 1.2; // Set limit to 120% of the pool size
     memory_used = 0;
 
+    // Initialize the free list with one large block
     free_list = (BlockHeader*)memory_pool;
-    free_list->size = (size - BLOCK_HEADER_SIZE);
-    free_list->free = 1;
-    free_list->next = NULL;
+    free_list->size = size - BLOCK_HEADER_SIZE; // Size of the free block
+    free_list->free = 1; // Mark as free
+    free_list->next = NULL; // No next block
 }
 
+// Function to allocate memory
 void* mem_alloc(size_t size) {
-    if (size == 0) {
-        return NULL;
-    }
+    if (size == 0) return NULL; // Handle zero allocation
 
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
-    size_t total_allocation = size + BLOCK_HEADER_SIZE;
+    size_t total_allocation = size + BLOCK_HEADER_SIZE; // Total size including header
 
+    // Search for a suitable block using the first-fit strategy
     while (current != NULL) {
-        if (current->free && current->size >= total_allocation) {
+        if (current->free && current->size >= size) {
             if (memory_used + total_allocation > memory_limit) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
             }
+
             // Split the block if it's larger than needed
             if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
-                new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Correct size
-                new_block->free = 1;
-                new_block->next = current->next;
-                //current->size = size; // Set the size of the allocated block
+                new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Remaining size
+                new_block->free = 1; // Mark new block as free
+                new_block->next = current->next; // Link to next block
+                current->size = size; // Set size of the allocated block
                 current->next = new_block; // Link the new block
             }
 
             current->free = 0; // Mark as allocated
             memory_used += total_allocation; // Update used memory
-            if (current == free_list) {
-                free_list = current->next; // Update free list head if necessary
-            } else {
-                previous->next = current->next; // Link previous to next
-            }
             return (char*)current + BLOCK_HEADER_SIZE; // Return pointer to usable memory
         }
         previous = current;
@@ -74,62 +71,66 @@ void* mem_alloc(size_t size) {
     return NULL; // No suitable block found
 }
 
+// Function to free allocated memory
 void mem_free(void* block) {
-    if (block == NULL) return;
+    if (block == NULL) return; // Handle null pointer
 
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
-    header->free = 1;  // Mark the block as free
-    memory_used -= header->size + BLOCK_HEADER_SIZE;  // Adjust used memory
+    header->free = 1; // Mark the block as free
+    memory_used -= header->size + BLOCK_HEADER_SIZE; // Adjust used memory
 
     // Merge with next block if it's free
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
+
     while (current != NULL && (char*)current < (char*)header) {
         previous = current;
         current = current->next;
     }
 
-    header->next = current;
+    header->next = current; // Link to next block
     if (previous == NULL) {
-        free_list = header;
+        free_list = header; // Update head of free list
     } else {
-        previous->next = header;
+        previous->next = header; // Link previous to header
     }
 
     // Try to merge with previous free block
     if (previous && (char*)previous + previous->size + BLOCK_HEADER_SIZE == (char*)header) {
-        previous->size += header->size + BLOCK_HEADER_SIZE;
-        previous->next = header->next;
-        header = previous;
+        previous->size += header->size + BLOCK_HEADER_SIZE; // Merge sizes
+        previous->next = header->next; // Link to next block
+        header = previous; // Update header to point to the merged block
     }
 
     // Try to merge with next free block
     if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
-        header->size += header->next->size + BLOCK_HEADER_SIZE;
-        header->next = header->next->next;
+        header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
+        header->next = header->next->next; // Link to next block
     }
 }
 
+// Function to resize allocated memory
 void* mem_resize(void* block, size_t size) {
     if (block == NULL) {
-        return mem_alloc(size);
+        return mem_alloc(size); // Allocate new block if null
     }
+
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
     if (header->size >= size) {
-        return block;
+        return block; // No need to resize
     }
-    void* new_block = mem_alloc(size);
+
+    void* new_block = mem_alloc(size); // Allocate new block
     if (new_block != NULL) {
-        memcpy(new_block, block, header->size);
-        mem_free(block);
+        memcpy(new_block, block, header->size); // Copy data to new block
+        mem_free(block); // Free old block
     }
-    return new_block;
+    return new_block; // Return new block
 }
 
+// Function to deinitialize the memory manager
 void mem_deinit() {
-    free(memory_pool);
-    memory_pool = NULL;
-    memory_pool_size = 0;
-    memory_used = 0;
-    free_list = NULL;
-}
+    free(memory_pool); // Free the memory pool
+    memory_pool = NULL; // Reset pointer
+    memory_pool_size = 0; // Reset size
+    memory_used = 0; // Reset usage
