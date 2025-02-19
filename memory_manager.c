@@ -33,7 +33,6 @@ void mem_init(size_t size) {
 
 void* mem_alloc(size_t size) {
     BlockHeader* current = free_list;
-    BlockHeader* previous = NULL;
     while (current != NULL) {
         if (current->free && current->size >= size) {
             if (current->size > size + BLOCK_HEADER_SIZE) {
@@ -108,6 +107,7 @@ void mem_deinit() {
     memory_pool = NULL;
     memory_pool_size = 0;
     memory_used = 0;
-    free_list = NULL;
+        free_list = NULL;
+    }
 
 
