@@ -47,7 +47,7 @@ void* mem_alloc(size_t size) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
             }
-            if (current->size >= total_allocation + BLOCK_HEADER_SIZE + 8) { // Ensure at least 8 bytes of usable space
+            if (current->size >= total_allocation + BLOCK_HEADER_SIZE) { // Ensure at least 8 bytes of usable space
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
                 new_block->size = current->size - total_allocation;
                 new_block->free = 1;
@@ -58,6 +58,11 @@ void* mem_alloc(size_t size) {
 
             current->free = 0;
             memory_used += total_allocation;
+            if (current == free_list) {
+                free_list = current->next;
+            } else {
+                previous->next = current->next;
+            }
             return (char*)current + BLOCK_HEADER_SIZE;
         }
         previous = current;
@@ -75,27 +80,35 @@ void mem_free(void* block) {
     header->free = 1; // Mark the block as free
     memory_used -= header->size + BLOCK_HEADER_SIZE; // Update memory usage
 
-    // Coalesce adjacent free blocks
-    BlockHeader* current = free_list;
-    while (current != NULL) {
-        if (current->free && current->next != NULL && current->next->free) {
-            current->size += current->next->size + BLOCK_HEADER_SIZE;
-            current->next = current->next->next; // Merge the next block
-        }
-        current = current->next;
-    }
-
-    // Add the freed block to the free list
     if (free_list == NULL) {
         free_list = header;
         header->next = NULL;
+        return;
+    }
+
+    BlockHeader* current = free_list;
+    BlockHeader* previous = NULL;
+    while (current != Null && current < header) {
+        previous = current;
+        current = current->next;
+    }
+
+    header->next = current;
+    if (previous == NULL) {
+        free_list = header;
     } else {
-        BlockHeader* current = free_list;
-        while (current->next != NULL) {
-            current = current->next;
-        }
-        current->next = header;
-        header->next = NULL;
+        previous->next = header;
+    }
+
+    if (previous && (char*)previous + previous->size + BLOCK_HEADER_SIZE == (char*)header) {
+        previous->size += header->size + BLOCK_HEADER_SIZE;
+        previous->next = header->next;
+        header = previous;
+    }
+
+    if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
+        header->size += header->next->size + BLOCK_HEADER_SIZE;
+        header->next = header->next->next;
     }
 }
 
@@ -117,7 +130,7 @@ void* mem_resize(void* block, size_t size) {
 }
 
 void mem_deinit() {
-    free(memory_pool);
+    munmap(memory_pool, memory_pool_size);
     memory_pool = NULL;
     memory_pool_size = 0;
     memory_used = 0;
