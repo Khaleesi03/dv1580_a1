@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "memory_manager.h"
 
 typedef struct Node {
     uint16_t data;
