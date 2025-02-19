@@ -21,7 +21,7 @@ static BlockHeader* free_list = NULL; // Head of the free list
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 
-// Function to initialize the memory manager
+// Initialize the memory manager with a given pool size
 void mem_init(size_t size) {
     memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (memory_pool == MAP_FAILED) {
@@ -40,7 +40,7 @@ void mem_init(size_t size) {
     free_list->next = NULL; // No next block
 }
 
-// Function to allocate memory
+// Allocate memory from the pool
 void* mem_alloc(size_t size) {
     if (size == 0) return NULL; // Handle zero allocation
 
@@ -51,6 +51,7 @@ void* mem_alloc(size_t size) {
     // Search for a suitable block using the first-fit strategy
     while (current != NULL) {
         if (current->free && current->size >= aligned_size) {
+            // Check if the memory usage exceeds the limit
             if (memory_used + total_allocation > memory_limit) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
@@ -58,13 +59,8 @@ void* mem_alloc(size_t size) {
 
             // Split the block if it's larger than needed
             if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
-                // Ensure the split block is within valid bounds
+                // Create a new block for the remaining free memory
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
-                if ((char*)new_block + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
-                    fprintf(stderr, "Invalid split: new block out of memory bounds\n");
-                    return NULL;
-                }
-
                 new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Remaining size
                 new_block->free = 1;
                 new_block->next = current->next; // Link to next block
@@ -77,22 +73,23 @@ void* mem_alloc(size_t size) {
             return (char*)current + BLOCK_HEADER_SIZE; // Return pointer to usable memory
         }
     
-        current = current->next;
+        current = current->next; // Move to next free block
     }
-    return NULL; // No suitable block found
+
+    // No suitable block found
+    return NULL;
 }
 
-
-
-// Function to free allocated memory
+// Free allocated memory
 void mem_free(void* block) {
     if (block == NULL) return; // Handle null pointer
 
+    // Get the block header from the memory block
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
     header->free = 1; // Mark the block as free
-    memory_used -= header->size + BLOCK_HEADER_SIZE; // Adjust used memory
+    memory_used -= header->size + BLOCK_HEADER_SIZE; // Update used memory
 
-    // Merge with next block if it's free
+    // Try to merge with previous and next free blocks
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
 
@@ -101,31 +98,27 @@ void mem_free(void* block) {
         current = current->next;
     }
 
-    header->next = current; // Link to next block
+    // Insert the freed block into the free list
+    header->next = current;
     if (previous == NULL) {
-        free_list = header; // Update head of free list
+        free_list = header; // Head of the free list
     } else {
-        previous->next = header; // Link previous to header
+        previous->next = header; // Link previous to freed block
     }
 
-    // Try to merge with previous free block
+    // Try to merge with the next free block
+    if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
+        header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
+        header->next = header->next->next; // Link to next free block
+    }
+
+    // Try to merge with the previous free block
     if (previous && (char*)previous + previous->size + BLOCK_HEADER_SIZE == (char*)header) {
         previous->size += header->size + BLOCK_HEADER_SIZE; // Merge sizes
         previous->next = header->next; // Link to next block
-        header = previous; // Update header to point to the merged block
-    }
-
-    // Try to merge with next free block
-    if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
-        header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
-        header->next = header->next->next; // Link to next block
-    }
-
-    // Check if the final block is within bounds of the memory pool
-    if ((char*)header + header->size + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
-        fprintf(stderr, "Invalid free: block out of memory bounds\n");
     }
 }
+
 
 
 // Function to resize allocated memory
