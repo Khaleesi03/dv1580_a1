@@ -20,7 +20,7 @@ static BlockHeader* free_list = NULL;
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 void mem_init(size_t size) {
-    memory_pool = malloc(size);
+   void *memory_pool = malloc(size);
     if (memory_pool == NULL) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
