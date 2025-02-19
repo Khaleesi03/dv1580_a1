@@ -70,22 +70,26 @@ void* mem_alloc(size_t size) {
             current->free = 0; // Mark as allocated
             memory_used += total_allocation; // Update used memory before allocation
 
-            // Ensure the allocated block does not overflow the memory pool bounds
-            if ((char*)current + current->size + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
-                fprintf(stderr, "Allocation exceeds memory pool bounds\n");
-                return NULL;
+            // Remove current block from free list
+            if (current == free_list) {
+                free_list = current->next; // Update free list head if current is at the head
+            } else {
+                BlockHeader* prev = free_list;
+                while (prev && prev->next != current) {
+                    prev = prev->next;
+                }
+                if (prev) prev->next = current->next;
             }
 
-            return (char*)current + BLOCK_HEADER_SIZE; // Return pointer to usable memory
+            // Return the pointer to the usable memory
+            return (char*)current + BLOCK_HEADER_SIZE;
         }
-
         current = current->next; // Move to next free block
     }
 
     // No suitable block found
     return NULL;
 }
-
 
 // Free allocated memory
 void mem_free(void* block) {
@@ -96,35 +100,36 @@ void mem_free(void* block) {
     header->free = 1; // Mark the block as free
     memory_used -= header->size + BLOCK_HEADER_SIZE; // Update used memory
 
-    // Try to merge with previous and next free blocks
+    // Insert into free list (sorted by address)
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
 
+    // Find the correct position to insert the freed block
     while (current != NULL && (char*)current < (char*)header) {
         previous = current;
         current = current->next;
     }
 
-    // Insert the freed block into the free list
     header->next = current;
     if (previous == NULL) {
-        free_list = header; // Head of the free list
+        free_list = header; // Insert at the head
     } else {
-        previous->next = header; // Link previous to freed block
+        previous->next = header; // Insert in the middle or end
     }
 
-    // Try to merge with the next free block
+    // Try merging with the next free block
     if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
         header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
-        header->next = header->next->next; // Link to next free block
+        header->next = header->next->next; // Link to the next block
     }
 
-    // Try to merge with the previous free block
+    // Try merging with the previous free block
     if (previous && (char*)previous + previous->size + BLOCK_HEADER_SIZE == (char*)header) {
         previous->size += header->size + BLOCK_HEADER_SIZE; // Merge sizes
         previous->next = header->next; // Link to next block
     }
 }
+
 
 
 
@@ -155,6 +160,10 @@ void* mem_resize(void* block, size_t size) {
 
 // Function to deinitialize the memory manager
 void mem_deinit() {
+    if (free_list != NULL) {
+        fprintf(stderr, "Memory leak detected: free list is not empty.\n");
+        // Optionally iterate over free_list to see unfreed blocks
+    }
     munmap(memory_pool, memory_pool_size); // Free the memory pool
     memory_pool = NULL; // Reset pointer
     memory_pool_size = 0; // Reset size
