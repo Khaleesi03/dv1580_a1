@@ -135,6 +135,7 @@ void* mem_resize(void* block, size_t size) {
     }
 
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
+    size_t total_size = size + BLOCK_HEADER_SIZE;
     if (header->size >= size) {
         return block; // No need to resize
     }
