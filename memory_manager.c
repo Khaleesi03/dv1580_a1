@@ -4,7 +4,6 @@
 #include <string.h>
 #include <sys/mman.h>
 
-
 typedef struct BlockHeader {
     size_t size;
     int free;
@@ -20,7 +19,7 @@ static BlockHeader* free_list = NULL;
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 void mem_init(size_t size) {
-   void memory_pool = malloc(size);
+    memory_pool = malloc(size);  // Fix: Corrected the declaration of memory_pool
     if (memory_pool == NULL) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
@@ -33,7 +32,6 @@ void mem_init(size_t size) {
     free_list->size = size - BLOCK_HEADER_SIZE;
     free_list->free = 1;
     free_list->next = NULL;
-
 }
 
 void* mem_alloc(size_t size) {
@@ -54,7 +52,7 @@ void* mem_alloc(size_t size) {
                 new_block->next = current->next;
                 current->size = size; // Reduce the current block size
                 current->next = new_block;
-            } 
+            }
 
             current->free = 0;
             memory_used += total_allocation;
@@ -71,7 +69,6 @@ void* mem_alloc(size_t size) {
     return NULL;
 }
 
-
 void mem_free(void* block) {
     if (block == NULL) return;
 
@@ -82,7 +79,7 @@ void mem_free(void* block) {
     // Merge with next block if it's free
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
-    while (current != NULL && current < header) {
+    while (current != NULL && (char*)current < (char*)header) {
         previous = current;
         current = current->next;
     }
@@ -108,8 +105,6 @@ void mem_free(void* block) {
     }
 }
 
-
-
 void* mem_resize(void* block, size_t size) {
     if (block == NULL) {
         return mem_alloc(size);
@@ -131,7 +126,5 @@ void mem_deinit() {
     memory_pool = NULL;
     memory_pool_size = 0;
     memory_used = 0;
-        free_list = NULL;
-    }
-
-
+    free_list = NULL;
+}
