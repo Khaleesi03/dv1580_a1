@@ -17,7 +17,7 @@ static size_t memory_limit = 0;     // Maximum allowed memory usage
 static BlockHeader* free_list = NULL; // Head of the free list
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
-
+#define size 6000
 // Function to initialize the memory manager
 void mem_init(size_t size) {
     memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
