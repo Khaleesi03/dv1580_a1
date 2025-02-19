@@ -91,39 +91,38 @@ void* mem_alloc(size_t size) {
     return NULL;
 }
 
-// Free allocated memory
 void mem_free(void* block) {
     if (block == NULL) return; // Handle null pointer
 
-    // Get the block header from the memory block
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
+    printf("Freeing block at %p, size: %zu\n", block, header->size);  // Print info for debugging
+
     header->free = 1; // Mark the block as free
     memory_used -= header->size + BLOCK_HEADER_SIZE; // Update used memory
 
-    // Insert into free list (sorted by address)
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
 
-    // Find the correct position to insert the freed block
     while (current != NULL && (char*)current < (char*)header) {
         previous = current;
         current = current->next;
     }
 
+    // Insert the freed block into the free list
     header->next = current;
     if (previous == NULL) {
-        free_list = header; // Insert at the head
+        free_list = header; // Head of the free list
     } else {
-        previous->next = header; // Insert in the middle or end
+        previous->next = header; // Link previous to freed block
     }
 
-    // Try merging with the next free block
+    // Try to merge with the next free block
     if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
         header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
-        header->next = header->next->next; // Link to the next block
+        header->next = header->next->next; // Link to next free block
     }
 
-    // Try merging with the previous free block
+    // Try to merge with the previous free block
     if (previous && (char*)previous + previous->size + BLOCK_HEADER_SIZE == (char*)header) {
         previous->size += header->size + BLOCK_HEADER_SIZE; // Merge sizes
         previous->next = header->next; // Link to next block
