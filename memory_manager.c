@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/mman.h> // For mmap and munmap
 
 typedef struct BlockHeader {
     size_t size;               // Size of the block (excluding header)
@@ -131,11 +132,11 @@ void* mem_resize(void* block, size_t size) {
         mem_free(block); // Free old block
     }
     return new_block; // Return new block
-    munmap(memory_pool, memory_pool_size); // Free the memory pool
+}
 
 // Function to deinitialize the memory manager
 void mem_deinit() {
-    free(memory_pool); // Free the memory pool
+    munmap(memory_pool); // Free the memory pool
     memory_pool = NULL; // Reset pointer
     memory_pool_size = 0; // Reset size
     memory_used = 0; // Reset usage
