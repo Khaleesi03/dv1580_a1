@@ -18,10 +18,6 @@ static BlockHeader* free_list = NULL;
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
-size_t align(size_t size) {
-    return (size + 7) & ~7; 
-}
-
 void mem_init(size_t size) {
     memory_pool = malloc(size);  // Fix: Corrected the declaration of memory_pool
     if (memory_pool == NULL) {
@@ -33,7 +29,7 @@ void mem_init(size_t size) {
     memory_used = 0;
 
     free_list = (BlockHeader*)memory_pool;
-    free_list->size = align(size - BLOCK_HEADER_SIZE);
+    free_list->size = (size - BLOCK_HEADER_SIZE);
     free_list->free = 1;
     free_list->next = NULL;
 }
