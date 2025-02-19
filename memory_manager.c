@@ -11,7 +11,7 @@ typedef struct BlockHeader {
     struct BlockHeader* next;
 } BlockHeader;
 
-static void *memory_pool = NULL;
+static void* memory_pool = NULL;
 static size_t memory_pool_size = 0;
 static size_t memory_used = 0;
 static size_t memory_limit = 0;
@@ -20,8 +20,8 @@ static BlockHeader* free_list = NULL;
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 void mem_init(size_t size) {
-   void *memory_pool = malloc(size);
-    if (*memory_pool == NULL) {
+   void memory_pool = malloc(size);
+    if (memory_pool == NULL) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
     }
@@ -29,7 +29,7 @@ void mem_init(size_t size) {
     memory_limit = size * 1.2;
     memory_used = 0;
 
-    free_list = (BlockHeader*)*memory_pool;
+    free_list = (BlockHeader*)memory_pool;
     free_list->size = size - BLOCK_HEADER_SIZE;
     free_list->free = 1;
     free_list->next = NULL;
