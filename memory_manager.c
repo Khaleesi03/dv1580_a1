@@ -66,10 +66,9 @@ void* mem_alloc(size_t size) {
             return (char*)current + BLOCK_HEADER_SIZE; // Return pointer to usable memory
         }
     
+        previous = current;
+        current = current->next;
     }
-
-    previous = current;
-    current = current->next;
     return NULL; // No suitable block found
 }
 
