@@ -47,14 +47,14 @@ void* mem_alloc(size_t size) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
             }
-            if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
+            if (current->size >= total_allocation + BLOCK_HEADER_SIZE + 8) { // Ensure at least 8 bytes of usable space
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
                 new_block->size = current->size - total_allocation;
                 new_block->free = 1;
                 new_block->next = current->next;
-                current->size = size;
+                current->size = size; // Reduce the current block size
                 current->next = new_block;
-            }
+            }            
 
             current->free = 0;
             memory_used += total_allocation;
