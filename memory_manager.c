@@ -117,7 +117,13 @@ void mem_free(void* block) {
         header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
         header->next = header->next->next; // Link to next block
     }
+
+    // Check if the final block is within bounds of the memory pool
+    if ((char*)header + header->size + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
+        fprintf(stderr, "Invalid free: block out of memory bounds\n");
+    }
 }
+
 
 // Function to resize allocated memory
 void* mem_resize(void* block, size_t size) {
