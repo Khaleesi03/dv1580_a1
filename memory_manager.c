@@ -12,7 +12,7 @@ typedef struct BlockHeader {
 } BlockHeader;
 
 static void* memory_pool = NULL;
-static size_t memory_pool_size = 6000;
+static size_t memory_pool_size = 0;
 static size_t memory_used = 0;
 static size_t memory_limit = 0;
 static BlockHeader* free_list = NULL;
@@ -27,7 +27,7 @@ void mem_init(size_t size) {
     }
     memory_pool_size = size;
     memory_limit = size * 1.2;
-    memory_used = BLOCK_HEADER_SIZE;
+    memory_used = 0;
 
     free_list = (BlockHeader*)memory_pool;
     free_list->size = size - BLOCK_HEADER_SIZE;
@@ -47,7 +47,7 @@ void* mem_alloc(size_t size) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
             }
-            if (current->size >= total_allocation + BLOCK_HEADER_SIZE + 1) {
+            if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
                 new_block->size = current->size - total_allocation;
                 new_block->free = 1;
