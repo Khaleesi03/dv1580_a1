@@ -164,6 +164,11 @@ void mem_deinit() {
         fprintf(stderr, "Memory leak detected: free list is not empty.\n");
         // Optionally iterate over free_list to see unfreed blocks
     }
+    BlockHeader* current = free_list;
+    while (current != NULL) {
+        printf("Free list contains block at %p, size: %zu\n", current, current->size);
+        current = current->next;
+    }
     munmap(memory_pool, memory_pool_size); // Free the memory pool
     memory_pool = NULL; // Reset pointer
     memory_pool_size = 0; // Reset size
