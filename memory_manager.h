@@ -6,13 +6,6 @@
 #include <stdint.h>
 #include <string.h>
 
-typedef struct BlockHeader {
-    size_t size;
-    int free;
-    struct BlockHeader* next;
-} BlockHeader;
-
-#define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 void mem_init(size_t size);
 void* mem_alloc(size_t size);
