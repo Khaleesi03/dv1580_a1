@@ -45,28 +45,29 @@ void* mem_alloc(size_t size) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
             }
-            if (current->size >= total_allocation + BLOCK_HEADER_SIZE) { // Ensure at least 8 bytes of usable space
+            // Split the block if it's larger than needed
+            if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
                 BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
-                new_block->size = current->size - total_allocation;
+                new_block->size = current->size - total_allocation - BLOCK_HEADER_SIZE; // Correct size
                 new_block->free = 1;
                 new_block->next = current->next;
-                current->size = size; // Reduce the current block size
-                current->next = new_block;
+                current->size = size; // Set the size of the allocated block
+                current->next = new_block; // Link the new block
             }
 
-            current->free = 0;
-            memory_used += total_allocation;
+            current->free = 0; // Mark as allocated
+            memory_used += total_allocation; // Update used memory
             if (current == free_list) {
-                free_list = current->next;
+                free_list = current->next; // Update free list head if necessary
             } else {
-                previous->next = current->next;
+                previous->next = current->next; // Link previous to next
             }
-            return (char*)current + BLOCK_HEADER_SIZE;
+            return (char*)current + BLOCK_HEADER_SIZE; // Return pointer to usable memory
         }
         previous = current;
         current = current->next;
     }
-    return NULL;
+    return NULL; // No suitable block found
 }
 
 void mem_free(void* block) {
