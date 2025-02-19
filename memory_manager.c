@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
-#include <sys/mman.h>
+
 
 typedef struct BlockHeader {
     size_t size;
@@ -11,7 +11,7 @@ typedef struct BlockHeader {
 } BlockHeader;
 
 static void* memory_pool = NULL;
-static size_t memory_pool_size = 6000;
+static size_t memory_pool_size = 0;
 static size_t memory_used = 0;
 static BlockHeader* free_list = NULL;
 
