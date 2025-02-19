@@ -68,7 +68,7 @@ void* mem_alloc(size_t size) {
             }
 
             current->free = 0; // Mark as allocated
-            memory_used += total_allocation; // Update used memory
+            memory_used += total_allocation; // Update used memory before allocation
 
             // Ensure the allocated block does not overflow the memory pool bounds
             if ((char*)current + current->size + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
@@ -131,20 +131,25 @@ void mem_free(void* block) {
 // Function to resize allocated memory
 void* mem_resize(void* block, size_t size) {
     if (block == NULL) {
-        return mem_alloc(size); // Allocate new block if null
+        return mem_alloc(size); // Allocate new block if NULL
     }
 
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
-    size_t total_size = size + BLOCK_HEADER_SIZE;
-    if (header->size >= size) {
-        return block; // No need to resize
+    size_t aligned_size = (size + 7) & ~7; // Align size to 8-byte boundary
+    size_t total_size = aligned_size + BLOCK_HEADER_SIZE; // Total size including header
+
+    // If the current block is large enough, just return it
+    if (header->size >= aligned_size) {
+        return block;
     }
 
-    void* new_block = mem_alloc(size); // Allocate new block
+    // If the current block is too small, allocate a new block
+    void* new_block = mem_alloc(aligned_size);
     if (new_block != NULL) {
         memcpy(new_block, block, header->size); // Copy data to new block
         mem_free(block); // Free old block
     }
+
     return new_block; // Return new block
 }
 
