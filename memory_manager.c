@@ -10,14 +10,16 @@ typedef struct BlockHeader {
     struct BlockHeader* next;  // Pointer to the next block in the free list
 } BlockHeader;
 
+#define size 6000 
+
 static void* memory_pool = NULL;  // Pointer to the memory pool
 static size_t memory_pool_size = 0; // Total size of the memory pool
 static size_t memory_used = 0;      // Amount of memory currently in use
 static size_t memory_limit = 0;     // Maximum allowed memory usage
 static BlockHeader* free_list = NULL; // Head of the free list
 
-#define BLOCK_HEADER_SIZE sizeof(BlockHeader);
-#define size 6000;
+#define BLOCK_HEADER_SIZE sizeof(BlockHeader)
+
 
 // Function to initialize the memory manager
 void mem_init(size_t size) {
