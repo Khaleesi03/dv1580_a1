@@ -20,7 +20,7 @@ static BlockHeader* free_list = NULL;
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 void mem_init(size_t size) {
-    memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    memory_pool = malloc(size);
     if (memory_pool == MAP_FAILED) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
@@ -132,7 +132,7 @@ void* mem_resize(void* block, size_t size) {
 }
 
 void mem_deinit() {
-    munmap(memory_pool, memory_pool_size);
+    free(memory_pool, memory_pool_size);
     memory_pool = NULL;
     memory_pool_size = 0;
     memory_used = 0;
