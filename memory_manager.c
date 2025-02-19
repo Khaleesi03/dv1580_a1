@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
+#include <sys/mman.h>
 
 
 typedef struct BlockHeader {
@@ -37,7 +38,7 @@ void mem_init(size_t size) {
 }
 
 void* mem_alloc(size_t size) {
-    BlockHeader* current = free_list;
+    // BlockHeader* previous = NULL;
     BlockHeader* previous = NULL;
 
     while (current != NULL) {
