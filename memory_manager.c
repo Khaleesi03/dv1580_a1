@@ -14,6 +14,7 @@ typedef struct BlockHeader {
 static void* memory_pool = NULL;
 static size_t memory_pool_size = 0;
 static size_t memory_used = 0;
+static size_t memory_limit = 0;
 static BlockHeader* free_list = NULL;
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
@@ -54,7 +55,7 @@ void* mem_alloc(size_t size) {
                 current->size = size;
                 current->next = new_block;
             }
-            
+
             current->free = 0;
             memory_used += size + BLOCK_HEADER_SIZE;
             return (char*)current + BLOCK_HEADER_SIZE;
