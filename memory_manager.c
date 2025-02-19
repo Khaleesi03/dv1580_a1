@@ -25,10 +25,7 @@ void mem_init(size_t size) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
     }
-    if (memory_pool == NULL) {
-        fprintf(stderr, "Failed to initialize memory pool\n");
-        exit(EXIT_FAILURE);
-    }
+    
     memory_pool_size = size;
     memory_limit = size * 1.2; // Set limit to 120% of the pool size
     memory_used = 0;
