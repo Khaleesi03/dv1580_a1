@@ -19,7 +19,11 @@ static BlockHeader* free_list = NULL; // Head of the free list
 
 // Function to initialize the memory manager
 void mem_init(size_t size) {
-    memory_pool = malloc(size);
+    memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+    if (memory_pool == MAP_FAILED) {
+        fprintf(stderr, "Failed to initialize memory pool\n");
+        exit(EXIT_FAILURE);
+    }
     if (memory_pool == NULL) {
         fprintf(stderr, "Failed to initialize memory pool\n");
         exit(EXIT_FAILURE);
@@ -127,7 +131,7 @@ void* mem_resize(void* block, size_t size) {
         mem_free(block); // Free old block
     }
     return new_block; // Return new block
-}
+    munmap(memory_pool, memory_pool_size); // Free the memory pool
 
 // Function to deinitialize the memory manager
 void mem_deinit() {
