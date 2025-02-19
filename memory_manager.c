@@ -25,32 +25,36 @@ void mem_init(size_t size) {
         exit(EXIT_FAILURE);
     }
     memory_pool_size = size;
-    memory_used = 0;
+    memory_limit = size * 1.2;
+    memory_used = BLOCK_HEADER_SIZE;
 
     free_list = (BlockHeader*)memory_pool;
     free_list->size = size - BLOCK_HEADER_SIZE;
     free_list->free = 1;
     free_list->next = NULL;
-    if (size > memory_pool_size * 0.2) {
-        fprintf(stderr, "Requested memory size exceeds 20%% of the memory pool size\n");
-        exit(EXIT_FAILURE);
-    }
+
 }
 
 void* mem_alloc(size_t size) {
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
-    
+
     while (current != NULL) {
         if (current->free && current->size >= size) {
-            if (current->size >= size + BLOCK_HEADER_SIZE + 1) {
-                BlockHeader* new_block = (BlockHeader*)((char*)current + BLOCK_HEADER_SIZE + size);
-                new_block->size = current->size - size - BLOCK_HEADER_SIZE;
+            size_t total_allocation = size + BLOCK_HEADER_SIZE;
+            if (memory_used + total_allocation > memory_limit) {
+                fprintf(stderr, "Memory limit exceeded\n");
+                return NULL;
+            }
+            if (current->size >= total_allocation + BLOCK_HEADER_SIZE + 1) {
+                BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
+                new_block->size = current->size - total_allocation;
                 new_block->free = 1;
                 new_block->next = current->next;
                 current->size = size;
                 current->next = new_block;
             }
+            
             current->free = 0;
             memory_used += size + BLOCK_HEADER_SIZE;
             return (char*)current + BLOCK_HEADER_SIZE;
