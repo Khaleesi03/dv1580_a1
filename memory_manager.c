@@ -40,7 +40,6 @@ void mem_init(size_t size) {
     free_list->next = NULL; // No next block
 }
 
-// Allocate memory from the pool
 void* mem_alloc(size_t size) {
     if (size == 0) return NULL; // Handle zero allocation
 
@@ -50,8 +49,8 @@ void* mem_alloc(size_t size) {
 
     // Search for a suitable block using the first-fit strategy
     while (current != NULL) {
+        // Boundary check: Ensure the block is large enough
         if (current->free && current->size >= aligned_size) {
-            // Check if the memory usage exceeds the limit
             if (memory_used + total_allocation > memory_limit) {
                 fprintf(stderr, "Memory limit exceeded\n");
                 return NULL;
@@ -70,15 +69,23 @@ void* mem_alloc(size_t size) {
 
             current->free = 0; // Mark as allocated
             memory_used += total_allocation; // Update used memory
+
+            // Ensure the allocated block does not overflow the memory pool bounds
+            if ((char*)current + current->size + BLOCK_HEADER_SIZE > (char*)memory_pool + memory_pool_size) {
+                fprintf(stderr, "Allocation exceeds memory pool bounds\n");
+                return NULL;
+            }
+
             return (char*)current + BLOCK_HEADER_SIZE; // Return pointer to usable memory
         }
-    
+
         current = current->next; // Move to next free block
     }
 
     // No suitable block found
     return NULL;
 }
+
 
 // Free allocated memory
 void mem_free(void* block) {
