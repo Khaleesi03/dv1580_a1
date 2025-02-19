@@ -132,7 +132,7 @@ void* mem_resize(void* block, size_t size) {
 }
 
 void mem_deinit() {
-    free(memory_pool, memory_pool_size);
+    free(memory_pool);
     memory_pool = NULL;
     memory_pool_size = 0;
     memory_used = 0;
