@@ -31,7 +31,10 @@ void mem_init(size_t size) {
     free_list->free = 1;
     free_list->next = NULL;
 }
-
+if (size > memory_pool_size * 0.2) {
+    fprintf(stderr, "Requested memory size exceeds 20%% of the memory pool size\n");
+    exit(EXIT_FAILURE);
+}
 void* mem_alloc(size_t size) {
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
