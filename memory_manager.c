@@ -72,20 +72,20 @@ void mem_free(void* block) {
         return;
     }
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
-    header->free = 1;
-    memory_used -= header->size + BLOCK_HEADER_SIZE;
+    header->free = 1; // Mark the block as free
+    memory_used -= header->size + BLOCK_HEADER_SIZE; // Update memory usage
 
     // Coalesce adjacent free blocks
     BlockHeader* current = free_list;
     while (current != NULL) {
         if (current->free && current->next != NULL && current->next->free) {
             current->size += current->next->size + BLOCK_HEADER_SIZE;
-            current->next = current->next->next;
+            current->next = current->next->next; // Merge the next block
         }
         current = current->next;
     }
 
-    // Add the freed block to the free list if it's not already there
+    // Add the freed block to the free list
     if (free_list == NULL) {
         free_list = header;
         header->next = NULL;
@@ -98,6 +98,7 @@ void mem_free(void* block) {
         header->next = NULL;
     }
 }
+
 
 void* mem_resize(void* block, size_t size) {
     if (block == NULL) {
