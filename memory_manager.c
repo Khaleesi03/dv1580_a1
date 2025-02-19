@@ -11,12 +11,12 @@ typedef struct BlockHeader {
 } BlockHeader;
 
 static void* memory_pool = NULL;
-static size_t memory_pool_size = 0;
+static size_t memory_pool_size = 6000;
 static size_t memory_used = 0;
 static BlockHeader* free_list = NULL;
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
-#define MEMORY_POOL_SIZE 6000
+
 void mem_init(size_t size) {
     memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
     if (memory_pool == MAP_FAILED) {
