@@ -35,14 +35,15 @@ void mem_init(size_t size) {
 void* mem_alloc(size_t size) {
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
+
+    while (current != NULL) {
+        if (current->free && current->size >= size) {
             if (current->size >= size + BLOCK_HEADER_SIZE + 1) {
                 BlockHeader* new_block = (BlockHeader*)((char*)current + BLOCK_HEADER_SIZE + size);
                 new_block->size = current->size - size - BLOCK_HEADER_SIZE;
                 new_block->free = 1;
                 new_block->next = current->next;
                 current->size = size;
-                current->next = new_block;
-            }
                 current->next = new_block;
             }
             current->free = 0;
