@@ -10,81 +10,63 @@ typedef struct BlockHeader {
     struct BlockHeader* next;  // Pointer to the next block in the free list
 } BlockHeader;
 
-#define MEMORY_POOL_SIZE 6000 
+#define PAGE_SIZE 4096
 
 static void* memory_pool = NULL;  // Pointer to the memory pool
 static size_t memory_pool_size = 0; // Total size of the memory pool
-static size_t memory_used = 0;      // Amount of memory currently in use
-static size_t memory_limit = 0;     // Maximum allowed memory usage
 static BlockHeader* free_list = NULL; // Head of the free list
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 // Initialize the memory manager with a given pool size
 void mem_init(size_t size) {
-    memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-    if (memory_pool == MAP_FAILED) {
-        fprintf(stderr, "Failed to initialize memory pool\n");
-        exit(EXIT_FAILURE);
+    if(size >= PAGE_SIZE){
+        memory_pool = mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (memory_pool == MAP_FAILED) {
+            fprintf(stderr, "Failed to initialize memory pool\n");
+            exit(EXIT_FAILURE);
+        } 
+    } else {
+        memory_pool = malloc(size);
+        if (!memory_pool){
+            perror("malloc failed");
+            exit(1);
+        }
+        
     }
-
     memory_pool_size = size;
-    memory_limit = size * 1.2; // Set limit to 120% of the pool size
-    memory_used = 0;
-
-    // Initialize the free list with one large block
     free_list = (BlockHeader*)memory_pool;
-    free_list->size = size - BLOCK_HEADER_SIZE; // Size of the free block
-    free_list->free = 1; // Mark as free
-    free_list->next = NULL; // No next block
+    free_list->size = memory_pool_size - sizeof(BlockHeader);
+    free_list->free = 1;
+    free_list->next = NULL;
 }
 
-void* mem_alloc(size_t size) {
-    if (size == 0 || memory_used + size > memory_limit) return NULL; // Handle zero allocation and memory limit
-
-    size_t aligned_size = (size + 7) & ~7; // Align size to 8-byte boundary
-    BlockHeader* prev = NULL;
-    BlockHeader* current = free_list;
-    size_t total_allocation = aligned_size + BLOCK_HEADER_SIZE; // Total size including header
-
-    // Search for a suitable block using the first-fit strategy
-    while (current != NULL) {
-        if (current->free && current->size >= aligned_size) {
-            if (current->size >= total_allocation + BLOCK_HEADER_SIZE) {
-                // Split the block
-                BlockHeader* new_block = (BlockHeader*)((char*)current + total_allocation);
-                new_block->size = current->size - total_allocation;
-                new_block->free = 1;
-                new_block->next = current->next;
-                current->size = aligned_size;
-                current->next = new_block;
+void *mem_alloc(size_t size) {
+    BlockHeader *current = free_list;
+    while (current) {
+        if (current->free && current->size >= size) {
+            size_t remaining = current->size - size - sizeof(BlockHeader);
+            if (remaining > sizeof(BlockHeader)) {
+                BlockHeader *newBlock = (BlockHeader *)((char *)current + sizeof(BlockHeader) + size);
+                newBlock->size = remaining;
+                newBlock->free = 1;
+                newBlock->next = current->next;
+                current->next = newBlock;
+                current->size = size;
             }
-
-            current->free = 0; // Mark as allocated
-            memory_used += total_allocation;
-
-            // Remove from free list
-            if (prev) {
-                prev->next = current->next;
-            } else {
-                free_list = current->next;
-            }
-
-            return (char*)current + BLOCK_HEADER_SIZE;
+            current->free = 0;
+            return (char *)current + sizeof(BlockHeader);
         }
-        prev = current;
         current = current->next;
     }
     return NULL;
 }
 
 void mem_free(void* block) {
-    if (block == NULL) return;
-
+    if (!block) return;
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
     header->free = 1;
-    memory_used -= header->size + BLOCK_HEADER_SIZE;
-
+    
     // Insert block into free list, maintaining address order
     BlockHeader* current = free_list;
     BlockHeader* prev = NULL;
@@ -148,5 +130,4 @@ void mem_deinit() {
     munmap(memory_pool, memory_pool_size);
     memory_pool = NULL;
     memory_pool_size = 0;
-    memory_used = 0;
 }
