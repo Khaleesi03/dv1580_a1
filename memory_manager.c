@@ -139,7 +139,6 @@ void mem_free(void* block) {
 }
 
 
-
 // Function to resize allocated memory
 void* mem_resize(void* block, size_t size) {
     if (block == NULL) {
@@ -148,7 +147,7 @@ void* mem_resize(void* block, size_t size) {
 
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
     size_t aligned_size = (size + 7) & ~7; // Align size to 8-byte boundary
-    size_t total_size = aligned_size + BLOCK_HEADER_SIZE; // Total size including header
+    //size_t total_size = aligned_size + BLOCK_HEADER_SIZE; // Total size including header
 
     // If the current block is large enough, just return it
     if (header->size >= aligned_size) {
