@@ -92,14 +92,15 @@ void* mem_alloc(size_t size) {
 }
 
 void mem_free(void* block) {
-    if (block == NULL) return; // Handle null pointer
+    if (block == NULL) return; // Ignore NULL pointers
 
     BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
-    printf("Freeing block at %p, size: %zu\n", block, header->size);  // Print info for debugging
+    printf("Freeing block at %p, size: %zu\n", block, header->size);  // Debug info
 
     header->free = 1; // Mark the block as free
     memory_used -= header->size + BLOCK_HEADER_SIZE; // Update used memory
 
+    // Insert the block back into the free list (sorted by address)
     BlockHeader* current = free_list;
     BlockHeader* previous = NULL;
 
@@ -108,27 +109,34 @@ void mem_free(void* block) {
         current = current->next;
     }
 
-    // Insert the freed block into the free list
-    header->next = current;
+    header->next = current; // Insert the freed block before `current`
     if (previous == NULL) {
-        free_list = header; // Head of the free list
+        free_list = header; // Update free list head if necessary
     } else {
-        previous->next = header; // Link previous to freed block
+        previous->next = header;
     }
 
-    // Try to merge with the next free block
+    // **Coalescing: Merge with adjacent free blocks if possible**
+
+    // Merge with the next block
     if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
-        header->size += header->next->size + BLOCK_HEADER_SIZE; // Merge sizes
-        header->next = header->next->next; // Link to next free block
+        header->size += header->next->size + BLOCK_HEADER_SIZE; // Increase size
+        header->next = header->next->next; // Skip merged block
     }
 
-    // Try to merge with the previous free block
+    // Merge with the previous block
     if (previous && (char*)previous + previous->size + BLOCK_HEADER_SIZE == (char*)header) {
-        previous->size += header->size + BLOCK_HEADER_SIZE; // Merge sizes
-        previous->next = header->next; // Link to next block
+        previous->size += header->size + BLOCK_HEADER_SIZE; // Increase size
+        previous->next = header->next; // Skip merged block
+        header = previous; // Move header pointer back to merged block
+    }
+
+    // **Check if the entire memory is free again**
+    if (free_list == header && free_list->next == NULL) {
+        // Reset free list to a single large block
+        free_list->size = memory_pool_size - BLOCK_HEADER_SIZE;
     }
 }
-
 
 
 
