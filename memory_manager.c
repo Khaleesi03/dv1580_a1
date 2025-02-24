@@ -10,7 +10,7 @@ typedef struct BlockHeader {
     struct BlockHeader* next;  // Pointer to the next block in the free list
 } BlockHeader;
 
-#define PAGE_SIZE 4096
+#define PAGE_SIZE 5096
 
 static void* memory_pool = NULL;  // Pointer to the memory pool
 static size_t memory_pool_size = 0; // Total size of the memory pool
