@@ -78,12 +78,15 @@ void *mem_alloc(size_t size) {
 
 void mem_free(void* block) {
     if (!block) return;
-    BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
+
+    // Get the block header by moving back the size of BlockHeader
+    BlockHeader* header = (BlockHeader*)((char*)block - sizeof(BlockHeader));
     header->free = 1;
-    
-    // Insert block into free list, maintaining address order
+
+    // Insert block into the free list in sorted order
     BlockHeader* current = free_list;
     BlockHeader* prev = NULL;
+
     while (current && (char*)current < (char*)header) {
         prev = current;
         current = current->next;
@@ -97,40 +100,48 @@ void mem_free(void* block) {
     }
 
     // Merge with next block if adjacent
-    if (header->next && (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next) {
-        header->size += header->next->size + BLOCK_HEADER_SIZE;
+    if (header->next && (char*)header + header->size + sizeof(BlockHeader) == (char*)header->next) {
+        header->size += header->next->size + sizeof(BlockHeader);
         header->next = header->next->next;
     }
 
     // Merge with previous block if adjacent
-    if (prev && (char*)prev + prev->size + BLOCK_HEADER_SIZE == (char*)header) {
-        prev->size += header->size + BLOCK_HEADER_SIZE;
+    if (prev && (char*)prev + prev->size + sizeof(BlockHeader) == (char*)header) {
+        prev->size += header->size + sizeof(BlockHeader);
         prev->next = header->next;
     }
 }
 
-void* mem_resize(void* block, size_t size) {
-    if (!block) return mem_alloc(size);
 
-    BlockHeader* header = (BlockHeader*)((char*)block - BLOCK_HEADER_SIZE);
-    size_t aligned_size = (size + 7) & ~7;
+void* mem_resize(void* block, size_t size) {
+    if (!block) return mem_alloc(size); // If NULL, allocate new memory.
+
+    BlockHeader* header = (BlockHeader*)((char*)block - sizeof(BlockHeader));
+
+    // If the requested size is the same or smaller, return the same block
+    if (size <= header->size) {
+        return block;
+    }
 
     // Check if next block is free and can be merged
     if (header->next && header->next->free &&
-        (char*)header + header->size + BLOCK_HEADER_SIZE == (char*)header->next &&
-        header->size + header->next->size + BLOCK_HEADER_SIZE >= aligned_size) {
-        header->size += header->next->size + BLOCK_HEADER_SIZE;
+        (char*)header + header->size + sizeof(BlockHeader) == (char*)header->next &&
+        header->size + header->next->size + sizeof(BlockHeader) >= size) {
+        
+        header->size += header->next->size + sizeof(BlockHeader);
         header->next = header->next->next;
         return block;
     }
 
-    void* new_block = mem_alloc(aligned_size);
+    // Allocate a new block and copy the old data
+    void* new_block = mem_alloc(size);
     if (new_block) {
-        memcpy(new_block, block, header->size);
+        memcpy(new_block, block, header->size); // Copy only existing data
         mem_free(block);
     }
     return new_block;
 }
+
 
 void mem_deinit() {
     if (memory_pool){
