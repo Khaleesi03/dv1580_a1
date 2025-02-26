@@ -67,7 +67,7 @@ void *mem_alloc(size_t size) {
             } else {
                 current->free = 0;
             }
-            return memory_pool_size + current->offset;
+            return memory_pool + current->offset;
         }
         current = current->next;
     }
