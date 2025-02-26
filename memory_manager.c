@@ -10,14 +10,14 @@ typedef struct BlockHeader {
     struct BlockHeader* next;  // Pointer to the next block in the free list
 } BlockHeader;
 
-static void* memory_pool = NULL;  // Pointer to the memory pool
+static char* memory_pool = NULL;  // Pointer to the memory pool
 static size_t memory_pool_size = 0; // Total size of the memory pool
 static BlockHeader* free_list = NULL; // Head of the free list
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
 void mem_init(size_t size) {
-    memory_pool = malloc(size);
+    memory_pool = (char*)malloc(size);
     if (!memory_pool) {
         perror("malloc failed");
         exit(EXIT_FAILURE);
@@ -25,7 +25,11 @@ void mem_init(size_t size) {
     memory_pool_size = size;
 
     // Initialize the free list directly in the memory pool
-    free_list = (BlockHeader*)memory_pool;
+    free_list = (BlockHeader*)malloc(sizeof(BlockHeader));
+    if(!free_list){
+        printf("malloc of free list failed");
+        exit(EXIT_FAILURE);
+    }
     free_list->offset = 0;
     free_list->size = size;
     free_list->free = 1;
@@ -47,9 +51,12 @@ void* mem_alloc(size_t size) {
     BlockHeader* current = free_list;
     while (current) {
         if (current->free && current->size >= size) {
-            if (current->size > size + sizeof(BlockHeader)) { 
+            if (current->size > size) { 
                 // Split the block correctly
-                BlockHeader* newBlock = (BlockHeader*)((char*)memory_pool + current->offset + size);
+                BlockHeader* newBlock = (BlockHeader*)malloc(sizeof(BlockHeader));
+                if(!newBlock){
+                    return NULL;
+                }
                 newBlock->offset = current->offset + size;
                 newBlock->size = current->size - size - sizeof(BlockHeader);  // Ensure size is correct after splitting
                 newBlock->free = 1;
@@ -69,42 +76,46 @@ void* mem_alloc(size_t size) {
     return NULL;
 }
 
-
 void mem_free(void* block) {
-    if (!block) return;
+    if (!block) return; // Early return if the block is NULL
 
-    // Get the block header by moving back the size of BlockHeader
-    BlockHeader* header = (BlockHeader*)((char*)block - sizeof(BlockHeader));
-    header->free = 1;
+    size_t offset = (char*)block - memory_pool; // Calculate offset of the block in the memory pool
 
-    // Insert block into the free list in sorted order
+    // Traverse the free list to find the block to free
     BlockHeader* current = free_list;
     BlockHeader* prev = NULL;
 
-    while (current && (char*)current < (char*)header) {
+    while (current) {
+        if (current->offset == offset) {  // If this is the block we need to free
+            if (current->free) {  // If the block is already free, return early
+                return;
+            }
+            current->free = 1;  // Mark the block as free
+
+            // Merge with the next block if it's free
+            if (current->next && current->next->free) {
+                BlockHeader* nextBlock = current->next;
+                current->size += nextBlock->size + sizeof(BlockHeader); // Add the size of the next block
+                current->next = nextBlock->next; // Update the link to skip the next block
+                free(nextBlock); // Now it's safe to free the next block
+            }
+
+            // Merge with the previous block if it's free
+            if (prev && prev->free) {
+                prev->size += current->size + sizeof(BlockHeader); // Add the size of the current block
+                prev->next = current->next; // Update the previous block's next pointer
+                free(current); // Now it's safe to free the current block
+                return;  // After merging with the previous block, we are done
+            }
+
+            return; // If no merging was done, we're done
+        }
         prev = current;
         current = current->next;
     }
-
-    header->next = current;
-    if (prev) {
-        prev->next = header;
-    } else {
-        free_list = header;
-    }
-
-    // Merge with next block if adjacent
-    if (header->next && (char*)header + header->size + sizeof(BlockHeader) == (char*)header->next) {
-        header->size += header->next->size + sizeof(BlockHeader);
-        header->next = header->next->next;
-    }
-
-    // Merge with previous block if adjacent
-    if (prev && (char*)prev + prev->size + sizeof(BlockHeader) == (char*)header) {
-        prev->size += header->size + sizeof(BlockHeader);
-        prev->next = header->next;
-    }
 }
+
+
 
 
 void* mem_resize(void* block, size_t size) {
