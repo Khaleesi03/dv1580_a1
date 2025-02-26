@@ -23,41 +23,35 @@ void mem_init(size_t size) {
         exit(EXIT_FAILURE);
     }
     memory_pool_size = size;
-    free_list = (BlockHeader*)malloc(sizeof(BlockHeader));
-    if (!free_list){
-        perror("malloc of free list failed");
-        exit(EXIT_FAILURE);
-    }
-    free_list ->offset = 0;
-    free_list -> size = size;
-    free_list -> free = 1;
-    free_list -> next = NULL;
+
+    // Initialize the free list directly in the memory pool
+    free_list = (BlockHeader*)memory_pool;
+    free_list->offset = 0;
+    free_list->size = size;
+    free_list->free = 1;
+    free_list->next = NULL;
 }
 
-
-void *mem_alloc(size_t size) {
-    if (size == 0){
+void* mem_alloc(size_t size) {
+    if (size == 0) {
         BlockHeader* current = free_list;
-        while (current){
-            if (current -> free){
-                return memory_pool + current -> offset;
+        while (current) {
+            if (current->free) {
+                return memory_pool + current->offset;
             }
-            current = current -> next;
+            current = current->next;
         }
         return NULL;
     }
-    
+
     BlockHeader* current = free_list;
-       while (current) {
+    while (current) {
         if (current->free && current->size >= size) {
             if (current->size > size + sizeof(BlockHeader)) { 
-                // Split the block
-                BlockHeader* newBlock = (BlockHeader*)malloc(sizeof(BlockHeader));
-                if (!newBlock) {
-                    return NULL;
-                }
+                // Split the block correctly
+                BlockHeader* newBlock = (BlockHeader*)((char*)memory_pool + current->offset + size);
                 newBlock->offset = current->offset + size;
-                newBlock->size = current->size - size;
+                newBlock->size = current->size - size - sizeof(BlockHeader);  // Ensure size is correct after splitting
                 newBlock->free = 1;
                 newBlock->next = current->next;
 
