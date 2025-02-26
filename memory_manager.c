@@ -163,3 +163,27 @@ void mem_deinit() {
     }
     free_list = NULL;
 }
+
+int main() {
+    // Initialize memory pool with 6000 bytes
+    mem_init(6000);
+    printf("Memory pool initialized with 6000 bytes\n");
+
+    // Allocate 6000 bytes
+    void* block1 = mem_alloc(6000);
+    if (block1) {
+        printf("Allocated 6000 bytes at %p\n", block1);
+    } else {
+        printf("Memory allocation failed\n");
+    }
+
+    // Free the allocated block
+    mem_free(block1);
+    printf("Freed block1\n");
+
+    // Deinitialize memory manager
+    mem_deinit();
+    printf("Memory deinitialized\n");
+
+    return 0;
+}
