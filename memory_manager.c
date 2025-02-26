@@ -4,7 +4,7 @@
 #include <string.h>
 
 typedef struct BlockHeader {
-    size_t offest;              //offset from beginning of memory pool
+    size_t offset;              //offset from beginning of memory pool
     size_t size;               // Size of the block (excluding header)
     int free;                 // 1 if the block is free, 0 if allocated
     struct BlockHeader* next;  // Pointer to the next block in the free list
@@ -23,34 +23,58 @@ void mem_init(size_t size) {
         exit(EXIT_FAILURE);
     }
     memory_pool_size = size;
-
-    free_list = (BlockHeader*)memory_pool;
-    free_list->size = memory_pool_size - sizeof(BlockHeader);
-    free_list->free = 1;
-    free_list->next = NULL;
+    free_list = (BlockHeader*)malloc(sizeof(BlockHeader));
+    if (!free_list){
+        perror("malloc of free list failed");
+        exit(EXIT_FAILURE);
+    }
+    free_list ->offset = 0;
+    free_list -> size = size;
+    free_list -> free = 1;
+    free_list -> next = NULL;
 }
 
 
 void *mem_alloc(size_t size) {
-    BlockHeader *current = free_list;
-    while (current) {
+    if (size == 0){
+        BlockHeader* current = free_list;
+        while (current){
+            if (current -> free){
+                return memory_pool + current -> offset;
+            }
+            current = current -> next;
+        }
+        return NULL;
+    }
+    
+    BlockHeader* current = free_list;
+       while (current) {
         if (current->free && current->size >= size) {
-            size_t remaining = current->size - size - sizeof(BlockHeader);
-            if (remaining > sizeof(BlockHeader)) {
-                BlockHeader *newBlock = (BlockHeader *)((char *)current + sizeof(BlockHeader) + size);
-                newBlock->size = remaining;
+            if (current->size > size + sizeof(BlockHeader)) { 
+                // Split the block
+                BlockHeader* newBlock = (BlockHeader*)malloc(sizeof(BlockHeader));
+                if (!newBlock) {
+                    return NULL;
+                }
+                newBlock->offset = current->offset + size;
+                newBlock->size = current->size - size;
                 newBlock->free = 1;
                 newBlock->next = current->next;
-                current->next = newBlock;
+
                 current->size = size;
+                current->free = 0;
+                current->next = newBlock;
+            } else {
+                current->free = 0;
             }
-            current->free = 0;
-            return (char *)current + sizeof(BlockHeader);
+            return memory_pool_size + current->offset;
         }
         current = current->next;
     }
+
     return NULL;
 }
+
 
 void mem_free(void* block) {
     if (!block) return;
