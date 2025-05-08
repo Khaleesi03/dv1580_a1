@@ -38,27 +38,23 @@ void mem_init(size_t size) {
 
 void* mem_alloc(size_t size) {
     if (size == 0) {
-        BlockHeader* current = free_list;
-        while (current) {
-            if (current->free) {
-                return memory_pool + current->offset;
-            }
-            current = current->next;
-        }
         return NULL;
     }
 
     BlockHeader* current = free_list;
+
     while (current) {
         if (current->free && current->size >= size) {
-            if (current->size > size) { 
-                // Split the block correctly
-                BlockHeader* newBlock = (BlockHeader*)malloc(sizeof(BlockHeader));
-                if(!newBlock){
-                    return NULL;
-                }
-                newBlock->offset = current->offset + size;
-                newBlock->size = current->size - size - sizeof(BlockHeader);  // Ensure size is correct after splitting
+            size_t total_size = size + sizeof(BlockHeader);
+            size_t remaining_size = current->size - size;
+
+            if (remaining_size >= sizeof(BlockHeader) + 1) {
+                // Create a new block inside the current free block
+                size_t new_block_offset = current->offset + sizeof(BlockHeader) + size;
+
+                BlockHeader* newBlock = (BlockHeader*)(memory_pool + new_block_offset - sizeof(BlockHeader));
+                newBlock->offset = new_block_offset;
+                newBlock->size = current->size - size - sizeof(BlockHeader);
                 newBlock->free = 1;
                 newBlock->next = current->next;
 
@@ -66,14 +62,17 @@ void* mem_alloc(size_t size) {
                 current->free = 0;
                 current->next = newBlock;
             } else {
+                // Not enough room to split — use the whole block
                 current->free = 0;
             }
+
             return memory_pool + current->offset;
         }
+
         current = current->next;
     }
 
-    return NULL;
+    return NULL; // No suitable block found
 }
 
 void mem_free(void* block) {
@@ -92,36 +91,34 @@ void mem_free(void* block) {
             }
             current->free = 1;  // Mark the block as free
 
-            // Merge with the next block if it's free
-            if (current->next && current->next->free) {
-                BlockHeader* nextBlock = current->next;
-                current->size += nextBlock->size + sizeof(BlockHeader); // Add the size of the next block
-                current->next = nextBlock->next; // Update the link to skip the next block
-                free(nextBlock); // Now it's safe to free the next block
+               // Merge with next
+               if (current->next && current->next->free) {
+                current->size += BLOCK_HEADER_SIZE + current->next->size;
+                current->next = current->next->next;
             }
 
-            // Merge with the previous block if it's free
+            // Merge with prev
             if (prev && prev->free) {
-                prev->size += current->size + sizeof(BlockHeader); // Add the size of the current block
-                prev->next = current->next; // Update the previous block's next pointer
-                free(current); // Now it's safe to free the current block
-                return;  // After merging with the previous block, we are done
+                prev->size += BLOCK_HEADER_SIZE + current->size;
+                prev->next = current->next;
             }
-
-            return; // If no merging was done, we're done
+            return;
         }
         prev = current;
         current = current->next;
     }
 }
 
-
-
-
 void* mem_resize(void* block, size_t size) {
     if (!block) return mem_alloc(size); // If NULL, allocate new memory.
 
-    BlockHeader* header = (BlockHeader*)((char*)block - sizeof(BlockHeader));
+    BlockHeader* header = free_list;
+    while (header && (memory_pool + header->offset != block)) {
+        header = header->next;
+    }
+    if (!header) {
+        return NULL; // Block not found in the free list
+    }
 
     // If the requested size is the same or smaller, return the same block
     if (size <= header->size) {
@@ -149,41 +146,8 @@ void* mem_resize(void* block, size_t size) {
 
 
 void mem_deinit() {
-    if (memory_pool){
-        free(memory_pool);
-        memory_pool = NULL;
-        memory_pool_size = 0;
-    }
-
-    BlockHeader* current = free_list;
-    while (current){
-        BlockHeader* next = current -> next;
-        free(current);
-        current = next;
-    }
+    memory_pool = NULL;
+    memory_pool_size = 0;
     free_list = NULL;
 }
 
-int main() {
-    // Initialize memory pool with 6000 bytes
-    mem_init(6000);
-    printf("Memory pool initialized with 6000 bytes\n");
-
-    // Allocate 6000 bytes
-    void* block1 = mem_alloc(6000);
-    if (block1) {
-        printf("Allocated 6000 bytes at %p\n", block1);
-    } else {
-        printf("Memory allocation failed\n");
-    }
-
-    // Free the allocated block
-    mem_free(block1);
-    printf("Freed block1\n");
-
-    // Deinitialize memory manager
-    mem_deinit();
-    printf("Memory deinitialized\n");
-
-    return 0;
-}
