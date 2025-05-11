@@ -3,7 +3,6 @@
 #include <stdint.h>
 #include <string.h>
 
-// Production-ready memory manager implementation
 // For 1024-byte pools, we use a specialized allocation strategy to handle 512-byte allocations
 
 // Minimal block header - only 2 bytes total
