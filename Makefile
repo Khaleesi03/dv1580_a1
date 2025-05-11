@@ -1,6 +1,6 @@
 # Compiler and Linking Variables
 CC = gcc
-CFLAGS = -Wall -fPIC
+CFLAGS = -Wall -g -fPIC  # Ensure debug symbols with -g
 LIB_NAME = libmemory_manager.so
 
 # Source and Object Files
@@ -22,7 +22,6 @@ gitinfo:
 	@echo "const char *git_date = \"$(GIT_DATE)\";" > gitdata.h
 	@echo "const char *git_sha = \"$(GIT_COMMIT)\";" >> gitdata.h
 
-
 # Build the memory manager
 mmanager: $(LIB_NAME)
 
@@ -36,17 +35,6 @@ test_mmanager: $(LIB_NAME)
 # Test target to run the linked list test program
 test_list: $(LIB_NAME) linked_list.o
 	$(CC) $(CFLAGS) -o test_linked_list linked_list.c test_linked_list.c -L. -lmemory_manager
-
-#run tests
-run_tests:n run_test_mmanager run_test_list
-
-# run test cases for the memory manager
-run_test_mmanager:
-	./test_memory_manager
-
-# run test cases for the linked list
-run_test_list:
-	./test_linked_list
 
 # Clean target to clean up build files
 clean:
