@@ -16,60 +16,69 @@ static BlockHeader* free_list = NULL; // Head of the free list
 
 #define BLOCK_HEADER_SIZE sizeof(BlockHeader)
 
-void mem_init(size_t size) {
-    memory_pool = (char*)malloc(size);
-    if (!memory_pool) {
-        perror("malloc failed");
-        exit(EXIT_FAILURE);
-    }
+int mem_init(size_t size) {
+    if (memory_pool != NULL) return -1;
+
+    memory_pool = malloc(size);
+    if (!memory_pool) return -1;
+
     memory_pool_size = size;
 
-    // Initialize the free list directly in the memory pool
-    free_list = (BlockHeader*)malloc(sizeof(BlockHeader));
-    if(!free_list){
-        printf("malloc of free list failed");
-        exit(EXIT_FAILURE);
-    }
-    free_list->offset = 0;
-    free_list->size = size;
+    // First block takes the entire pool, minus space for header
+    free_list = (BlockHeader*) memory_pool;
+    free_list->offset = sizeof(BlockHeader); // payload starts after header
+    free_list->size = size - sizeof(BlockHeader);
     free_list->free = 1;
     free_list->next = NULL;
+
+    return 0;
 }
 
 void* mem_alloc(size_t size) {
     if (size == 0) {
-        return NULL;
+        return NULL; // Return NULL if requested size is 0
     }
 
-    BlockHeader* current = free_list;
-
+    BlockHeader* current = free_list; // Start with the head of the free list
     while (current) {
+        // Check if the current block is free and large enough
         if (current->free && current->size >= size) {
-            size_t total_size = size + sizeof(BlockHeader);
-            size_t remaining_size = current->size - size;
+            size_t total_size = size + sizeof(BlockHeader); // Total size including header
+            size_t remaining_size = current->size - size; // Remaining size after allocation
+            
+            if (remaining_size < sizeof(BlockHeader)) {
+                // Not enough space to split, use the whole block
+                current->free = 0; // Mark block as allocated
+            } else {
+                // Enough space to split the block
+                current->size = size; // Update the size of the current block
+                current->free = 0; // Mark block as allocated
+            }
 
             if (remaining_size >= sizeof(BlockHeader) + 1) {
                 // Create a new block inside the current free block
                 size_t new_block_offset = current->offset + sizeof(BlockHeader) + size;
 
+                // Initialize the new block header
                 BlockHeader* newBlock = (BlockHeader*)(memory_pool + new_block_offset - sizeof(BlockHeader));
-                newBlock->offset = new_block_offset;
-                newBlock->size = current->size - size - sizeof(BlockHeader);
-                newBlock->free = 1;
-                newBlock->next = current->next;
+                newBlock->offset = new_block_offset; // Set the offset of the new block
+                newBlock->size = current->size - size - sizeof(BlockHeader); // Set the size of the new block
+                newBlock->free = 1; // Mark the new block as free
+                newBlock->next = current->next; // Link the new block to the next block
 
+                // Update the current block's size and next pointer
                 current->size = size;
                 current->free = 0;
                 current->next = newBlock;
             } else {
                 // Not enough room to split — use the whole block
-                current->free = 0;
+                current->free = 0; // Mark block as allocated
             }
 
-            return memory_pool + current->offset;
+            return memory_pool + current->offset; // Return pointer to the allocated memory
         }
 
-        current = current->next;
+        current = current->next; // Move to the next block in the free list
     }
 
     return NULL; // No suitable block found
@@ -146,6 +155,9 @@ void* mem_resize(void* block, size_t size) {
 
 
 void mem_deinit() {
+    if (memory_pool != NULL) {
+        free(memory_pool);  // Free the memory pool
+    }
     memory_pool = NULL;
     memory_pool_size = 0;
     free_list = NULL;
