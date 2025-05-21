@@ -179,12 +179,21 @@ void test_frequent_small_allocations()
 
     const int num_allocations = 50;
     void *blocks[num_allocations];
+    int successful_allocations = 0;
+    size_t total_allocated = 0;
 
     for (int i = 0; i < num_allocations; i++)
     {
         blocks[i] = mem_alloc(10); // Small allocations
+        if (blocks[i] != NULL) {
+            successful_allocations++;
+            total_allocated += 10;
+        }
+        
         my_assert(blocks[i] != NULL);
     }
+
+    
 
     for (int i = 0; i < num_allocations; i++)
     {
@@ -549,7 +558,6 @@ int main(int argc, char *argv[])
       test_looking_for_out_of_bounds(atoi(argv[2]));
       break;
     case 21:
-      printf("Test 21.\n");
       test_mmap();
       break;
     default:
