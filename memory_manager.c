@@ -17,13 +17,11 @@ static BlockHeader* free_list = NULL; // Head of the free list
 
 int mem_init(size_t size) {
     if (memory_pool != NULL) {
-        
         return -1;
     }
 
     memory_pool = malloc(size);
     if (!memory_pool) {
-        
         return -1;
     }
 
@@ -34,8 +32,6 @@ int mem_init(size_t size) {
     free_list->size = size + BLOCK_HEADER_SIZE; // Correct size including header
     free_list->free = 1;
     free_list->next = NULL;
-
-    
 
     return 0;
 }
@@ -52,16 +48,10 @@ void* mem_alloc(size_t size) {
     }
 
     BlockHeader* current = free_list;
-    BlockHeader* prev = NULL;
 
     while (current) {
-        size_t offset = (char*)current - memory_pool;
-
-        
-
         // Check if the current block size is sufficient for allocation
         if (!current->free || current->size < size + sizeof(BlockHeader)) {
-            prev = current;
             current = current->next;
             continue;
         }
@@ -71,8 +61,6 @@ void* mem_alloc(size_t size) {
             size_t remaining_size = current->size - total_size;
 
             if (remaining_size >= sizeof(BlockHeader) + 1) {
-                
-
                 BlockHeader* newBlock = (BlockHeader*)((char*)current + total_size);
                 newBlock->size = remaining_size + BLOCK_HEADER_SIZE; // Adjust size to include header correctly
                 newBlock->free = 1;
@@ -81,23 +69,16 @@ void* mem_alloc(size_t size) {
                 current->size = size;
                 current->free = 0;
                 current->next = newBlock;
-
-                
             } else {
-                
-
                 current->free = 0;
-                
             }
 
             return (char*)current + sizeof(BlockHeader);
         }
 
-        prev = current;
         current = current->next;
     }
 
-    
     return NULL;
 }
 
@@ -174,7 +155,6 @@ void* mem_resize(void* block, size_t size) {
     }
     return new_block;
 }
-
 
 void mem_deinit() {
     if (memory_pool != NULL) {
