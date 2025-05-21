@@ -114,7 +114,7 @@ void test_exceed_single_allocation()
 void test_exceed_cumulative_allocation()
 {
     printf_yellow("  Testing cumulative allocations exceeding pool size ---> ");
-    mem_init(1024); // Initialize with 1KB of memory
+    mem_init(1024); 
     void *block1 = mem_alloc(512);
     my_assert(block1 != NULL);
     void *block2 = mem_alloc(512);
