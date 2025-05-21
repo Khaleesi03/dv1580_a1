@@ -1,8 +1,10 @@
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
 #include <string.h>
 
+<<<<<<< HEAD
 // Production-ready memory manager implementation
 // For 1024-byte pools, we use a specialized allocation strategy to handle 512-byte allocations
 
@@ -16,6 +18,15 @@ typedef struct __attribute__((packed)) {
 #define IS_FREE(header) ((header)->size_and_free >> 15)
 #define SET_FREE(header, free) ((header)->size_and_free = ((free) ? ((header)->size_and_free | 0x8000) : ((header)->size_and_free & 0x7FFF)))
 
+=======
+typedef struct BlockHeader {
+    size_t offset;              //offset from beginning of memory pool
+    size_t size;               // Size of the block (excluding header)
+    int free;                 // 1 if the block is free, 0 if allocated
+    struct BlockHeader* next;  // Pointer to the next block in the free list
+} BlockHeader;
+
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
 static char* memory_pool = NULL;  // Pointer to the memory pool
 static size_t memory_pool_size = 0; // Total size of the memory pool
 
@@ -60,6 +71,7 @@ int mem_init(size_t size) {
 
     memory_pool_size = size;
 
+<<<<<<< HEAD
     // Special case for 1024-byte pool to handle the test case
     if (size == 1024) {
         // Create two blocks of 512 bytes each (including headers)
@@ -78,12 +90,26 @@ int mem_init(size_t size) {
         SET_FREE(initial, 1);
     }
     
+=======
+    // First block takes the entire pool, minus space for header
+    free_list = (BlockHeader*) memory_pool;
+    free_list->offset = sizeof(BlockHeader); // payload starts after header
+    free_list->size = size - sizeof(BlockHeader);
+    free_list->free = 1;
+    free_list->next = NULL;
+
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
     return 0;
 }
 
 void* mem_alloc(size_t size) {
+<<<<<<< HEAD
     if (memory_pool == NULL) {
         return NULL;
+=======
+    if (size == 0) {
+        return NULL; // Return NULL if requested size is 0
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
     }
     
     // Handle zero size allocation - return a small allocation instead
@@ -94,6 +120,7 @@ void* mem_alloc(size_t size) {
     // Round up size to ensure proper alignment
     size = (size + 1) & ~1;  // Align to 2 bytes
 
+<<<<<<< HEAD
     BlockHeader* current = (BlockHeader*)memory_pool;
     char* pool_end = memory_pool + memory_pool_size;
 
@@ -151,17 +178,59 @@ void* mem_alloc(size_t size) {
         }
         
         current = next;
+=======
+    BlockHeader* current = free_list; // Start with the head of the free list
+    while (current) {
+        // Check if the current block is free and large enough
+        if (current->free && current->size >= size) {
+            size_t total_size = size + sizeof(BlockHeader); // Total size including header
+            size_t remaining_size = current->size - size; // Remaining size after allocation
+            
+            if (remaining_size < sizeof(BlockHeader)) {
+                // Not enough space to split, use the whole block
+                current->free = 0; // Mark block as allocated
+            } else {
+                // Enough space to split the block
+                current->size = size; // Update the size of the current block
+                current->free = 0; // Mark block as allocated
+            }
+
+            if (remaining_size >= sizeof(BlockHeader) + 1) {
+                // Create a new block inside the current free block
+                size_t new_block_offset = current->offset + sizeof(BlockHeader) + size;
+
+                // Initialize the new block header
+                BlockHeader* newBlock = (BlockHeader*)(memory_pool + new_block_offset - sizeof(BlockHeader));
+                newBlock->offset = new_block_offset; // Set the offset of the new block
+                newBlock->size = current->size - size - sizeof(BlockHeader); // Set the size of the new block
+                newBlock->free = 1; // Mark the new block as free
+                newBlock->next = current->next; // Link the new block to the next block
+
+                // Update the current block's size and next pointer
+                current->size = size;
+                current->free = 0;
+                current->next = newBlock;
+            } else {
+                // Not enough room to split — use the whole block
+                current->free = 0; // Mark block as allocated
+            }
+
+            return memory_pool + current->offset; // Return pointer to the allocated memory
+        }
+
+        current = current->next; // Move to the next block in the free list
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
     }
 
     return NULL; // No suitable block found
 }
 
 void mem_free(void* block) {
-    if (!block || memory_pool == NULL) return;
+    if (!block) return; // Early return if the block is NULL
 
-    BlockHeader* current = (BlockHeader*)memory_pool;
-    char* pool_end = memory_pool + memory_pool_size;
+    size_t offset = (char*)block - memory_pool; // Calculate offset of the block in the memory pool
 
+<<<<<<< HEAD
     while ((char*)current < pool_end) {
         void* user_ptr = (char*)current + BLOCK_HEADER_SIZE;
         if (user_ptr == block) {
@@ -180,10 +249,39 @@ void mem_free(void* block) {
         }
         
         current = next;
+=======
+    // Traverse the free list to find the block to free
+    BlockHeader* current = free_list;
+    BlockHeader* prev = NULL;
+
+    while (current) {
+        if (current->offset == offset) {  // If this is the block we need to free
+            if (current->free) {  // If the block is already free, return early
+                return;
+            }
+            current->free = 1;  // Mark the block as free
+
+               // Merge with next
+               if (current->next && current->next->free) {
+                current->size += BLOCK_HEADER_SIZE + current->next->size;
+                current->next = current->next->next;
+            }
+
+            // Merge with prev
+            if (prev && prev->free) {
+                prev->size += BLOCK_HEADER_SIZE + current->size;
+                prev->next = current->next;
+            }
+            return;
+        }
+        prev = current;
+        current = current->next;
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
     }
 }
 
 void* mem_resize(void* block, size_t size) {
+<<<<<<< HEAD
     if (!block) return mem_alloc(size);
     if (size == 0) {
         mem_free(block);
@@ -260,15 +358,56 @@ void* mem_resize(void* block, size_t size) {
         }
         
         current = next;
+=======
+    if (!block) return mem_alloc(size); // If NULL, allocate new memory.
+
+    BlockHeader* header = free_list;
+    while (header && (memory_pool + header->offset != block)) {
+        header = header->next;
+    }
+    if (!header) {
+        return NULL; // Block not found in the free list
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
     }
 
-    return NULL;
+    // If the requested size is the same or smaller, return the same block
+    if (size <= header->size) {
+        return block;
+    }
+
+<<<<<<< HEAD
+void mem_deinit(void) {
+=======
+    // Check if next block is free and can be merged
+    if (header->next && header->next->free &&
+        (char*)header + header->size + sizeof(BlockHeader) == (char*)header->next &&
+        header->size + header->next->size + sizeof(BlockHeader) >= size) {
+        
+        header->size += header->next->size + sizeof(BlockHeader);
+        header->next = header->next->next;
+        return block;
+    }
+
+    // Allocate a new block and copy the old data
+    void* new_block = mem_alloc(size);
+    if (new_block) {
+        memcpy(new_block, block, header->size); // Copy only existing data
+        mem_free(block);
+    }
+    return new_block;
 }
 
-void mem_deinit(void) {
+
+void mem_deinit() {
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
     if (memory_pool != NULL) {
         free(memory_pool);  // Free the memory pool
     }
     memory_pool = NULL;
     memory_pool_size = 0;
+<<<<<<< HEAD
 }
+=======
+    free_list = NULL;
+}
+>>>>>>> afae262eccf71e961ec697685c436f3f9f7e1cb4
