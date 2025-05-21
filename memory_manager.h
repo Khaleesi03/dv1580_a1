@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 #ifndef MEMORY_MANAGER_H
 #define MEMORY_MANAGER_H
 
@@ -20,6 +19,8 @@ void* mem_resize(void* block, size_t new_size);
 void mem_deinit();
 
 #endif // MEMORY_MANAGER_H
+<<<<<<< HEAD
+=======
 =======
 #ifndef MEMORY_MANAGER_H
 #define MEMORY_MANAGER_H
@@ -38,3 +39,4 @@ void mem_deinit();
 
 #endif // MEMORY_MANAGER_H
 >>>>>>> d8675c2f0fdc43be70019f38d9fe0d8fcc2aa578
+>>>>>>> 1626eba23f0a1762b13dfec45f83fd62295d2eeb
