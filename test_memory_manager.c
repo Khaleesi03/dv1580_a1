@@ -4,14 +4,18 @@
 #include <string.h>
 #include <stdlib.h>
 #include <time.h>
+#include <dlfcn.h>
+#include <sys/mman.h>
+#include <fcntl.h>
 #include "common_defs.h"
 
 #include "gitdata.h"
 
-void test_init()
+
+void test_init(int memory)
 {
-    printf_yellow("  Testing mem_init ---> ");
-    mem_init(1024);               // Initialize with 1KB of memory
+  printf_yellow("  Testing mem_init (%d) ---> ", memory);
+    mem_init(memory);               // Initialize with 1KB of memory
     void *block = mem_alloc(100); // Try allocating to check if init was successful
     my_assert(block != NULL);
 
@@ -78,8 +82,9 @@ void test_random_blocks()
     {
         mem_free(blocks[k]);
     }
+    
     mem_free(blocks[0]);
-
+    mem_deinit();
     printf_green("[PASS].\n");
 }
 
@@ -326,6 +331,82 @@ void test_edge_case_allocations()
     printf_green("[PASS].\n");
 }
 
+void test_looking_for_out_of_bounds(int size){
+  printf("  Testing outofbounds (errors not tracked/detected here) \n");
+  if (size<5000) {
+    size=5000+size;
+    printf("Size too small, min. 5000, new size is %d bytes.\n",size);
+  }
+
+  
+  printf("ALLOCATION %d\n",size);
+  mem_init(size); // Initialize with <size> bytes
+  printf("ALLOCATED %d\n",size);
+  void *block0 = mem_alloc(512); // Edge case: zero allocation
+  assert(block0 != NULL);      // Depending on handling, this could also be NULL
+  
+  void *block1 = mem_alloc(512); // 0-1024
+  assert(block1 != NULL);
+
+  void *block2 = mem_alloc(1024); // 1024-2048
+  assert(block2 != NULL);
+
+  void *block3 = mem_alloc(2048); // 2048-4096
+  assert(block3 != NULL);
+
+  void *block4 = mem_alloc(904); // 4096-5000
+  assert(block4 != NULL);
+
+  int lastBlock=size-5000;
+  void *block5 = mem_alloc(lastBlock); // size-5000
+  assert(block5 != NULL);
+
+  printf("BLOCK0; %p, 512\n", block0);
+  printf("BLOCK1; %p, 512\n", block1);
+  printf("BLOCK2; %p, 1024\n", block2);
+  printf("BLOCK3; %p, 2048\n", block3);
+  printf("BLOCK4; %p, 904\n", block4);
+  printf("BLOCK5; %p, %d\n", block5, lastBlock);
+  
+  mem_free(block0);
+  mem_free(block1);
+  mem_free(block2);
+  mem_free(block3);
+  mem_free(block4);
+  mem_free(block5);
+  
+  mem_deinit();
+  printf("[PASS].\n");
+}
+
+void test_mmap(){
+  printf("  Testing mmap. \n");
+
+  int len=8192;
+  void *addr = mmap(NULL, len, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+  
+
+  
+  if ( addr == MAP_FAILED ){
+    perror("mmap failed.");
+    exit(EXIT_FAILURE);
+  }
+
+  printf("Memory mapped at %p.\n", addr);
+
+  char *data = (char *)addr;
+  for (int i = 0; i < len; i++) {
+    data[i] = 'A'; // Fill memory with 'A'
+  }
+  
+  if ( munmap(addr, len) == -1 ){
+    perror("munmap failed");
+    exit(EXIT_FAILURE);
+  }
+   
+}
+
+
 int main(int argc, char *argv[])
 {
 #ifdef VERSION
@@ -362,8 +443,12 @@ int main(int argc, char *argv[])
 	
 	printf("\nVarious tests: \n");
 	printf(" 17. test_zero_alloc_and_free - Ensure that we can allocate 0 bytes, and it does not fail.\n");
-	printf(" 18. test_random_blocks - Test that we can allocate a random size, and random amounts of blocks [1000,10000]. \n\n");
-        printf(" 0. Run all tests\n");
+	printf(" 18. test_random_blocks - Test that we can allocate a random size, and random amounts of blocks [1000,10000]. \n");
+        printf(" 19. test_init, but large memory - Initialize memory system\n");
+	printf(" 20. test_looking_for_out_of_bounds, needs LD_PRELOAD=./libmymalloc.so .Needs argument of size.\n\n");
+	printf(" 21. test_mmap, needs LD_PRELOAD=./libmymalloc.so .\n\n");
+	
+        printf(" 0. Run all tests (excluding 20)\n");
         return 1;
     }
 
@@ -375,7 +460,7 @@ int main(int argc, char *argv[])
     case 0:
         // Running all tests
         printf("Testing Basic Operations:\n");
-        test_init();
+        test_init(1024);
         test_alloc_and_free();
         test_resize();
 
@@ -399,9 +484,10 @@ int main(int argc, char *argv[])
         printf("\nVarious other tests:\n");
         test_zero_alloc_and_free();
         test_random_blocks();
+	test_init(1048576);
         break;
     case 1:
-        test_init();
+        test_init(1024);
         break;
     case 2:
         test_alloc_and_free();
@@ -452,11 +538,23 @@ int main(int argc, char *argv[])
         test_zero_alloc_and_free();
         break;
     case 18:
-        test_random_blocks();
-        break;
+      test_random_blocks();
+      break;
+    case 19:
+      printf("Test 19.\n");
+      test_init(4096);
+      break;
+    case 20:
+      printf("Test 20.\n");
+      test_looking_for_out_of_bounds(atoi(argv[2]));
+      break;
+    case 21:
+      printf("Test 21.\n");
+      test_mmap();
+      break;
     default:
-        printf("Invalid test function\n");
-        break;
+      printf("Invalid test function\n");
+      break;
     }
     return 0;
 }
