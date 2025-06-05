@@ -3,193 +3,243 @@
 #include <stdint.h>
 #include <string.h>
 
-// Structure for each memory block header
-typedef struct BlockHeader {
-    size_t size;                 // Size of the memory block (excluding header)
-    int free;                    // 1 if block is free, 0 if allocated
-    struct BlockHeader* next;    // Pointer to next free block
-} BlockHeader;
+/**
+ * @struct MemBlock
+ * @brief Structure to track a block of memory in the external memory manager.
+ *
+ * @var offset Offset of the block from the start of the memory pool.
+ * @var size Size of the memory block in bytes.
+ * @var is_block_free Flag indicating if the block is free (1) or allocated (0).
+ * @var next Pointer to the next memory block in the linked list.
+ */
+typedef struct MemBlock {
+    size_t offset;          /**< Offset from the start of the memory pool */
+    size_t size;            /**< Size of the memory block */
+    int is_block_free;      /**< 1 if block is free, 0 if allocated */
+    struct MemBlock* next;  /**< Pointer to next block in the list */
+} MemBlock;
 
-// Static global variables for memory manager state
-static char* memory_pool = NULL;       // Start of allocated memory pool
-static size_t memory_pool_size = 0;    // Total size of the pool
-static BlockHeader* free_list = NULL;  // Head of the free list
+/** Head pointer to the linked list of memory blocks */
+static MemBlock* mem_block_list = NULL;
 
-#define BLOCK_HEADER_SIZE sizeof(BlockHeader)  // Convenience macro for header size
+/** Pointer to the start of the allocated memory pool */
+static char* mem_pool = NULL;
 
-// Initialize the memory pool with a given size
+/** Total size of the memory pool in bytes */
+static size_t mem_pool_size = 0;
+
+/**
+ * @brief Initialize the memory pool with a given size.
+ *
+ * Allocates the memory pool and sets up the initial free block covering the entire pool.
+ *
+ * @param size Size of the memory pool to allocate in bytes.
+ * @return 0 on success, -1 on failure (e.g., already initialized or malloc failure).
+ */
+
 int mem_init(size_t size) {
-    if (memory_pool != NULL) {
-        // Already initialized, prevent reinitialization
-        return -1;
-    }
+    if (mem_pool != NULL) return -1;
 
-    // Allocate raw memory pool
-    memory_pool = malloc(size);
-    if (!memory_pool) {
-        // Allocation failed
-        return -1;
-    }
+    mem_pool = malloc(size);
+    if (!mem_pool) return -1;
 
-    memory_pool_size = size;
+    mem_pool_size = size;
 
-    // Set up the first (and only) free block that spans the entire pool
-    free_list = (BlockHeader*) memory_pool;
-    free_list->size = size + BLOCK_HEADER_SIZE;  // Account for header size
-    free_list->free = 1;                          // Mark block as free
-    free_list->next = NULL;                       // No next block
+    // Setup initial free block covering entire pool
+    mem_block_list = (MemBlock*)malloc(sizeof(MemBlock));
+    if (!mem_block_list) return -1;
 
-    return 0;  // Success
+    mem_block_list->offset = 0;
+    mem_block_list->size = size;
+    mem_block_list->is_block_free = 1;
+    mem_block_list->next = NULL;
+
+    return 0;
 }
 
-// Allocate a memory block of a given size
+
+/**
+ * @brief Allocate a memory block of a given size from the memory pool.
+ *
+ * If size is 0, returns the first free block's address.
+ * Otherwise, finds a free block large enough to satisfy the request.
+ * If the block is larger than needed, splits it into allocated and free parts.
+ *
+ * @param size Size of the memory block to allocate in bytes.
+ * @return Pointer to the allocated memory block, or NULL if allocation fails.
+ */
 void* mem_alloc(size_t size) {
+    if (!mem_pool) return NULL;
+
     if (size == 0) {
-        // Zero-byte allocation: return first free block if available
-        if (free_list && free_list->free) {
-            return (char*)free_list + BLOCK_HEADER_SIZE;
-        } else {
-            return NULL;
+        MemBlock* current_block = mem_block_list;
+        while (current_block){
+            if (current_block->is_block_free){
+                return mem_pool + current_block->offset;
+            }
+            current_block = current_block->next;
         }
+        return NULL;
     }
 
-    BlockHeader* current = free_list;
+    MemBlock* current_block = mem_block_list;
 
-    // Traverse free list to find a large enough block
-    while (current) {
-        // Skip if block is not free or too small
-        if (!current->free || current->size < size + BLOCK_HEADER_SIZE) {
-            current = current->next;
-            continue;
+    while (current_block) {
+        if (current_block->is_block_free && current_block->size >= size) {
+            // If block is bigger than needed, split it
+            if (current_block->size > size) {
+                MemBlock* new_block = (MemBlock*)malloc(sizeof(MemBlock));
+                if (!new_block) return NULL;
+
+                new_block->offset = current_block->offset + size;
+                new_block->size = current_block->size - size;
+                new_block->is_block_free = 1;
+                new_block->next = current_block->next;
+
+                current_block->size = size;
+                current_block->is_block_free = 0;
+                current_block->next = new_block;
+            } else {
+                current_block->is_block_free = 0;  // Use entire block
+            }
+
+            return mem_pool + current_block->offset;
         }
 
-        // Suitable block found
-        size_t total_size = size + BLOCK_HEADER_SIZE;
-        size_t remaining_size = current->size - total_size;
-
-        if (remaining_size >= BLOCK_HEADER_SIZE + 1) {
-            // Split current block into allocated and remaining free block
-            BlockHeader* newBlock = (BlockHeader*)((char*)current + total_size);
-            newBlock->size = remaining_size + BLOCK_HEADER_SIZE;  // Include header
-            newBlock->free = 1;
-            newBlock->next = current->next;
-
-            // Adjust current block
-            current->size = size;  // Shrink to requested size
-            current->free = 0;     // Mark as allocated
-            current->next = newBlock;
-        } else {
-            // Not enough space to split — allocate whole block
-            current->free = 0;
-        }
-
-        // Return pointer to usable memory after header
-        return (char*)current + BLOCK_HEADER_SIZE;
+        current_block = current_block->next;
     }
 
-    // No suitable block found
-    return NULL;
+    return NULL;  // No suitable block found
 }
 
-// Free a previously allocated block
-void mem_free(void* block) {
-    if (!block) {
-        return;  // Null pointer check
-    }
+/**
+ * @brief Free a previously allocated memory block.
+ *
+ * Marks the block as free and merges with adjacent free blocks if possible.
+ *
+ * @param ptr Pointer to the memory block to free.
+ */
+void mem_free(void* ptr) {
+    if (!ptr || !mem_pool) return;
 
-    BlockHeader* current = free_list;
-    BlockHeader* prev = NULL;
+    size_t offset = (char*)ptr - mem_pool;
+    MemBlock* current_block = mem_block_list;
+    MemBlock* previous_block = NULL;
 
-    // Traverse free list to locate the block header corresponding to the data pointer
-    while (current) {
-        // Check if current block matches the pointer
-        if ((char*)current + BLOCK_HEADER_SIZE == block) {
-            if (current->free) {
-                return;  // Already free, ignore
+    while (current_block) {
+        if (current_block->offset == offset) {
+            if (current_block->is_block_free) return;  // Already free
+
+            current_block->is_block_free = 1;
+
+            // Merge with next block if it is free
+            if (current_block->next && current_block->next->is_block_free) {
+                MemBlock* next_block = current_block->next;
+                current_block->size += next_block->size;
+                current_block->next = next_block->next;
+                free(next_block);
             }
 
-            current->free = 1;  // Mark block as free
-
-            // Merge with next adjacent free blocks
-            while (current->next && current->next->free) {
-                current->size += BLOCK_HEADER_SIZE + current->next->size;
-                current->next = current->next->next;
+            // Merge with previous block if it is free
+            if (previous_block && previous_block->is_block_free) {
+                previous_block->size += current_block->size;
+                previous_block->next = current_block->next;
+                free(current_block);
             }
 
-            // Merge with previous block if also free
-            if (prev && prev->free) {
-                prev->size += BLOCK_HEADER_SIZE + current->size;
-                prev->next = current->next;
-                current = prev;  // Update current to merged block
-            }
-
-            // Update head of free list if necessary
-            if (free_list == NULL || (char*)free_list > (char*)current) {
-                free_list = current;
-            }
-
-            return;  // Done
+            return;
         }
 
-        prev = current;
-        current = current->next;
+        previous_block = current_block;
+        current_block = current_block->next;
     }
 }
+
 
 // Resize an allocated memory block to a new size
-void* mem_resize(void* block, size_t size) {
-    if (!block) {
-        // Equivalent to malloc
-        return mem_alloc(size);
+void* mem_resize(void* ptr, size_t size) {
+    if (!ptr) return mem_alloc(size);
+    if (size == 0) {
+        mem_free(ptr);
+        return NULL;
     }
 
-    // Locate the header for this block
-    BlockHeader* header = free_list;
-    while (header && ((char*)header + BLOCK_HEADER_SIZE != block)) {
-        header = header->next;
+    size_t offset = (char*)ptr - mem_pool;
+    MemBlock* current_block = mem_block_list;
+
+    while (current_block) {
+        if (current_block->offset == offset) {
+            if (current_block->size >= size) {
+                if (current_block->size > size) {
+                    // Split the block
+                    MemBlock* new_block = (MemBlock*)malloc(sizeof(MemBlock));
+                    if (!new_block) return NULL;
+
+                    new_block->offset = current_block->offset + size;
+                    new_block->size = current_block->size - size;
+                    new_block->is_block_free = 1;
+                    new_block->next = current_block->next;
+
+                    current_block->size = size;
+                    current_block->next = new_block;
+                }
+                return ptr;
+            } else {
+                // Try to merge with next if possible
+                if (current_block->next && current_block->next->is_block_free &&
+                    current_block->size + current_block->next->size >= size) {
+                    current_block->size += current_block->next->size;
+                    MemBlock* next_block = current_block->next;
+                    current_block->next = next_block->next;
+                    free(next_block);
+
+                    // Split again if oversized
+                    if (current_block->size > size) {
+                        MemBlock* new_block = (MemBlock*)malloc(sizeof(MemBlock));
+                        if (!new_block) return NULL;
+
+                        new_block->offset = current_block->offset + size;
+                        new_block->size = current_block->size - size;
+                        new_block->is_block_free = 1;
+                        new_block->next = current_block->next;
+
+                        current_block->size = size;
+                        current_block->next = new_block;
+                    }
+
+                    return ptr;
+                } else {
+                    // Fallback: allocate new, copy data
+                    void* new_ptr = mem_alloc(size);
+                    if (new_ptr) {
+                        memcpy(new_ptr, ptr, current_block->size);
+                        mem_free(ptr);
+                    }
+                    return new_ptr;
+                }
+            }
+        }
+
+        current_block = current_block->next;
     }
 
-    if (!header) {
-        return NULL;  // Block not found
-    }
-
-    if (size <= header->size) {
-        // Requested size fits in existing block
-        return block;
-    }
-
-    // Check if we can merge with next free block
-    if (header->next && header->next->free &&
-        (char*)header + BLOCK_HEADER_SIZE + header->size == (char*)header->next &&
-        header->size + header->next->size + BLOCK_HEADER_SIZE >= size) {
-        
-        // Extend current block into next block
-        header->size += header->next->size + BLOCK_HEADER_SIZE;
-        header->next = header->next->next;
-        return block;
-    }
-
-    // Fallback: allocate new block and copy old data
-    void* new_block = mem_alloc(size);
-    if (new_block) {
-        memcpy(new_block, block, header->size);  // Copy old data
-        mem_free(block);  // Free old block
-    }
-
-    return new_block;
+    return NULL;
 }
 
 // Deinitialize memory pool, releasing all memory
 void mem_deinit() {
-    if (memory_pool != NULL) {
-        printf("mem_deinit: deinitializing memory pool\n");
-        free(memory_pool);  // Free entire pool
-    } else {
-        printf("mem_deinit: memory pool is already NULL\n");
+    if (mem_pool) {
+        free(mem_pool);
+        mem_pool = NULL;
+        mem_pool_size = 0;
     }
 
-    // Reset global variables
-    memory_pool = NULL;
-    memory_pool_size = 0;
-    free_list = NULL;
+    MemBlock* current_block = mem_block_list;
+    while (current_block) {
+        MemBlock* next_block = current_block->next;
+        free(current_block);
+        current_block = next_block;
+    }
+
+    mem_block_list = NULL;
 }

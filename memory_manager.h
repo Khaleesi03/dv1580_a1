@@ -4,7 +4,7 @@
 #include <stddef.h>
 
 // Initializes the memory manager with a specified size of memory pool
-void mem_init(size_t size);
+int mem_init(size_t size);
 
 // Allocates a block of memory of the specified size
 void* mem_alloc(size_t size);

@@ -1,229 +1,174 @@
-#include "linked_list.h"
 #include <stdio.h>
-#include <stdlib.h>
+#include "linked_list.h"
+#include "memory_manager.h"
 
-void list_init(Node** head, size_t size) {
-    *head = NULL;         // Ensure the head pointer is set to NULL (empty list)
-    (void)size;           // Explicit cast to void to suppress unused warning
+void list_init(Node **head, size_t size) {
+    #ifdef DEBUG
+    printf("list_init: ensuring memory manager is reset\n");
+    #endif
+
+    mem_deinit();  // Ensure clean state for memory manager
+
+    if (mem_init(size) != 0) {
+        fprintf(stderr, "Memory manager initialization failed.\n");
+        return;
+    }
+
+    *head = NULL;
 }
 
-//
-// Inserts a new node with given data at the end of the list
-//
 void list_insert(Node** head, uint16_t data) {
-    Node* new_node = (Node*)malloc(sizeof(Node));  // Dynamically allocate new node
+    Node* new_node = (Node*)mem_alloc(sizeof(Node));
     if (!new_node) {
-        fprintf(stderr, "list_insert: allocation failed\n");
+        fprintf(stderr, "Memory allocation failed in list_insert\n");
         return;
     }
+    new_node->data = data;
+    new_node->next = NULL;
 
-    new_node->data = data;    // Assign data to new node
-    new_node->next = NULL;    // New node will be the last node, so next is NULL
-
-    if (!*head) {
-        // If list is empty, new node becomes the head
+    if (*head == NULL) {
         *head = new_node;
-        return;
+    } else {
+        Node* temp = *head;
+        while (temp->next)
+            temp = temp->next;
+        temp->next = new_node;
     }
-
-    // Traverse to the end of the list
-    Node* current = *head;
-    while (current->next) {
-        current = current->next;
-    }
-
-    current->next = new_node;  // Append the new node at the end
 }
 
-//
-// Inserts a new node with given data after the specified node
-//
 void list_insert_after(Node* prev_node, uint16_t data) {
-    if (!prev_node) {
-        fprintf(stderr, "list_insert_after: prev_node is NULL\n");
-        return;
-    }
+    if (!prev_node) return;
 
-    Node* new_node = (Node*)malloc(sizeof(Node));  // Allocate new node
+    Node* new_node = (Node*)mem_alloc(sizeof(Node));
     if (!new_node) {
-        fprintf(stderr, "list_insert_after: allocation failed\n");
+        fprintf(stderr, "Memory allocation failed in list_insert_after\n");
         return;
     }
-
-    new_node->data = data;                 // Set data
-    new_node->next = prev_node->next;      // Link new node to the node after prev_node
-    prev_node->next = new_node;            // Insert new node into the list after prev_node
+    new_node->data = data;
+    new_node->next = prev_node->next;
+    prev_node->next = new_node;
 }
 
-//
-// Inserts a new node with given data before a specified node (next_node)
-// - If next_node is the head, insert new node at the beginning
-//
 void list_insert_before(Node** head, Node* next_node, uint16_t data) {
-    if (!next_node) {
-        fprintf(stderr, "list_insert_before: next_node is NULL\n");
+    if (!head || !next_node) return;
+
+    Node* new_node = (Node*)mem_alloc(sizeof(Node));
+    if (!new_node) {
+        fprintf(stderr, "Memory allocation failed in list_insert_before\n");
         return;
     }
 
-    // If next_node is the head, insert at front
-    if (*head == next_node) {
-        Node* new_node = (Node*)malloc(sizeof(Node));
-        if (!new_node) {
-            fprintf(stderr, "list_insert_before: allocation failed\n");
-            return;
-        }
+    new_node->data = data;
 
-        new_node->data = data;
+    if (*head == next_node) {
         new_node->next = *head;
         *head = new_node;
         return;
     }
 
-    // Find the node before next_node
-    Node* current = *head;
-    while (current && current->next != next_node) {
-        current = current->next;
-    }
-
-    if (!current) {
-        fprintf(stderr, "list_insert_before: next_node not found in list\n");
-        return;
-    }
-
-    // Use insert_after logic to insert before target
-    list_insert_after(current, data);
-}
-
-//
-// Deletes the first node that contains the specified data value
-//
-void list_delete(Node** head, uint16_t data) {
-    Node* current = *head;
-    Node* prev = NULL;
-
-    // Search for the node containing the data
-    while (current && current->data != data) {
-        prev = current;
-        current = current->next;
-    }
-
-    if (!current) {
-        // Reached end of list and data not found
-        fprintf(stderr, "list_delete: value %u not found\n", data);
-        return;
-    }
+    Node* prev = *head;
+    while (prev && prev->next != next_node)
+        prev = prev->next;
 
     if (!prev) {
-        // Node to be deleted is the head
-        *head = current->next;
-    } else {
-        // Bypass current node
-        prev->next = current->next;
-    }
-
-    free(current);  // Free memory used by node
-}
-
-//
-// Searches for the first node containing the specified data
-//
-Node* list_search(Node** head, uint16_t data) {
-    Node* current = *head;
-
-    // Traverse list until data is found
-    while (current) {
-        if (current->data == data) {
-            return current;  // Found matching node
-        }
-        current = current->next;
-    }
-
-    return NULL;  // Not found
-}
-
-//
-// Displays all elements in the list as [val1, val2, ..., valN]
-//
-void list_display(Node** head) {
-    Node* current = *head;
-    printf("[");
-
-    // Traverse and print node data
-    while (current) {
-        printf("%u", current->data);
-        if (current->next) {
-            printf(", ");  // Print separator if not last
-        }
-        current = current->next;
-    }
-
-    printf("]");
-}
-
-//
-// Displays the contents of a subrange of the list from start_node to end_node (inclusive)
-// - If start_node is NULL, starts from head
-//
-void list_display_range(Node** head, Node* start_node, Node* end_node) {
-    if (!*head) {
-        // Empty list
-        printf("[]");
+        mem_free(new_node);
+        fprintf(stderr, "Next node not found in list_insert_before\n");
         return;
     }
 
-    if (!start_node) {
-        // If start_node not specified, begin from head
-        start_node = *head;
+    new_node->next = next_node;
+    prev->next = new_node;
+}
+
+void list_delete(Node** head, uint16_t data) {
+    if (!head || !*head) return;
+
+    Node* temp = *head;
+    Node* prev = NULL;
+
+    while (temp && temp->data != data) {
+        prev = temp;
+        temp = temp->next;
     }
 
-    Node* current = start_node;
-    printf("[");
-    int first = 1;
+    if (!temp) return;
 
-    // Traverse from start_node to end_node
+    if (!prev)
+        *head = temp->next;
+    else
+        prev->next = temp->next;
+
+    mem_free(temp);
+}
+
+Node* list_search(Node** head, uint16_t data) {
+    Node* current = *head;
     while (current) {
+        if (current->data == data)
+            return current;
+        current = current->next;
+    }
+    return NULL;
+}
+
+void list_display(Node** head) {
+    Node* current = *head;
+
+    printf("[");
+    int first = 0;  // Flag to avoid printing comma before the first element
+
+    while (current != NULL) {
         if (!first) {
             printf(", ");
         }
-        printf("%u", current->data);
-        if (current == end_node) {
-            break;  // Stop at end_node (inclusive)
+        printf("%d", current->data);
+        first = 1;
+        current = current->next;
+    }
+    printf("]\n");
+}
+
+void list_display_range(Node** head, Node* start_node, Node* end_node) {
+    Node* current = *head;
+    int print = (start_node == NULL);  // if start_node == NULL, start printing immediately
+    int first = 1; // track if it's the first element printed
+
+    printf("[");
+    while (current) {
+        if (current == start_node)
+            print = 1;
+        if (print) {
+            if (!first) {
+                printf(", ");
+            }
+            printf("%d", current->data);
+            first = 0;
+
+            if (current == end_node)
+                break;
         }
         current = current->next;
-        first = 0;
     }
-
     printf("]");
 }
 
-//
-// Counts and returns the number of nodes in the list
-//
+
 int list_count_nodes(Node** head) {
     int count = 0;
     Node* current = *head;
-
-    // Count nodes one-by-one
     while (current) {
         count++;
         current = current->next;
     }
-
     return count;
 }
 
-//
-// Frees all nodes in the list and resets the head pointer to NULL
-//
 void list_cleanup(Node** head) {
     Node* current = *head;
-
-    // Traverse and free each node
     while (current) {
-        Node* temp = current;    // Store current pointer for deallocation
-        current = current->next; // Move to next node
-        free(temp);              // Free the current node
+        Node* temp = current;
+        current = current->next;
+        mem_free(temp);
     }
-
-    *head = NULL;  // Reset head pointer to signify an empty list
+    *head = NULL;
 }
